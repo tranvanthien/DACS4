@@ -1,0 +1,267 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CLEAN & STRUCTURED HOME DASHBOARD
+   Phân chia rõ ràng: Hero tập trung -> 2 cột rõ rệt (Cuộc họp / Bảng cá nhân)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Hero Clean Focus ────────────────────────────────────────── */
+.home-hero-clean {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.95) 0%, rgba(11, 15, 25, 0.98) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: var(--rl);
+    padding: 36px 40px;
+    margin-bottom: 28px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    overflow: hidden;
+}
+.home-hero-clean::after {
+    content: '';
+    position: absolute;
+    top: -60px;
+    right: -40px;
+    width: 260px;
+    height: 260px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.18) 0%, transparent 70%);
+    pointer-events: none;
+}
+.hero-clean-title {
+    font-size: 1.85rem;
+    font-weight: 800;
+    color: var(--text-white);
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+}
+.hero-clean-sub {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    max-width: 600px;
+    line-height: 1.5;
+}
+.hero-clean-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 6px;
+    flex-wrap: wrap;
+}
+.btn-clean-create {
+    background: var(--grad);
+    color: #fff;
+    padding: 12px 24px;
+    border-radius: var(--r);
+    font-size: 0.92rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: var(--tr);
+    white-space: nowrap;
+}
+.btn-clean-create:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.55);
+    filter: brightness(1.08);
+}
+.hero-clean-join {
+    display: flex;
+    align-items: center;
+    background: var(--bg-surface);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    border-radius: var(--r);
+    padding: 4px 5px 4px 14px;
+    transition: var(--tr);
+    flex: 1;
+    max-width: 380px;
+    min-width: 260px;
+}
+.hero-clean-join:focus-within {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+.hero-clean-join input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-family: monospace;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    outline: none;
+    width: 100%;
+}
+.hero-clean-join input::placeholder {
+    font-family: var(--font);
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--text-sub);
+    font-size: 0.84rem;
+}
+.hero-clean-join button {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-white);
+    padding: 8px 16px;
+    border-radius: var(--r-sm);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--tr);
+    white-space: nowrap;
+}
+.hero-clean-join button:hover {
+    background: var(--primary);
+    border-color: var(--primary-light);
+    color: #fff;
+}
+
+/* ── Clean 2-Column Split ────────────────────────────────────── */
+.home-clean-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 28px;
+    align-items: start;
+}
+@media (max-width: 960px) {
+    .home-clean-layout {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Section Header Bar */
+.clean-section-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.clean-section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-white);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Meeting List & Rows */
+.clean-meeting-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--rl);
+    box-shadow: var(--sh-card);
+    overflow: hidden;
+}
+.clean-m-row {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    transition: var(--tr);
+    gap: 14px;
+}
+.clean-m-row:last-child {
+    border-bottom: none;
+}
+.clean-m-row:hover {
+    background: var(--bg-surface);
+}
+.clean-m-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--r);
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+.clean-m-body {
+    flex: 1;
+    min-width: 0;
+}
+.clean-m-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-white);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.clean-m-meta {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+}
+.clean-m-code {
+    font-family: monospace;
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--cyan);
+    padding: 2px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+}
+.clean-m-code:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+.clean-m-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* Sidebar Sections */
+.clean-side-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--rl);
+    box-shadow: var(--sh-card);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.clean-side-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.clean-side-section:last-child {
+    border-bottom: none;
+}
+.clean-side-hd {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text-sub);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.clean-ai-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    padding: 4px 0;
+}

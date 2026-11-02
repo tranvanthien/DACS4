@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Quản lý người dùng — Admin LinguaMeet</title>
+    <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <div class="admin-main">
+            <header class="admin-topbar" id="adminTopbar"></header>
+            <div class="admin-content">
+
+                <div class="page-hd">
+                    <div>
+                        <h2>👥 Quản lý Người dùng</h2>
+                        <p style="font-size:.8rem;color:var(--g500);margin-top:3px;">
+                            Quản trị thông tin tài khoản, cấu hình ngôn ngữ nói/nghe và cấp quyền Quản trị viên (Admin)
+                        </p>
+                    </div>
+                    <div class="phd-actions">
+                        <span id="totalBadge" style="font-size:.8rem;color:var(--g500);align-self:center;"></span>
+                        <button class="btn btn-secondary btn-sm" onclick="openCreateUserModal()">➕ Thêm tài khoản</button>
+                        <button class="btn btn-ghost btn-sm" onclick="loadUsers()">🔄 Làm mới</button>
+                    </div>
+                </div>
+
+                <div class="data-table-wrap">
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <span>🔍</span>
+                            <input id="searchQ" type="text" placeholder="Tìm tên, email..." oninput="loadUsers()" />
+                        </div>
+                        <select id="filterLang" class="filter-select" onchange="loadUsers()">
+                            <option value="">Tất cả ngôn ngữ</option>
+                        </select>
+                        <select id="filterRole" class="filter-select" onchange="loadUsers()">
+                            <option value="">Tất cả vai trò</option>
+                            <option value="admin">Quản trị viên (Admin)</option>
+                            <option value="user">Người dùng thường</option>
+                        </select>
+                        <span style="margin-left:auto;font-size:.75rem;color:var(--g500);" id="filterResult"></span>
+                    </div>
+
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Người dùng</th>
+                                    <th>Email</th>
+                                    <th>Vai trò</th>
+                                    <th>Nói</th>
+                                    <th>Nghe</th>
+                                    <th>Phòng tạo/tham gia</th>
+                                    <th>Ngày tạo</th>
+                                    <th style="text-align:right;">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersBody">
+                                <tr>
+                                    <td colspan="8" style="text-align:center;padding:24px;">
+                                        <span class="spin"></span> Đang tải danh sách người dùng...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="usersPagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Tạo tài khoản mới -->
+    <div id="modalCreateUser" class="modal-bg" onclick="if(event.target===this)closeModal('modalCreateUser')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>➕ Thêm tài khoản người dùng mới</h3>
+                <button class="x-btn" onclick="closeModal('modalCreateUser')">✕</button>
+            </div>
+            <div class="modal-body">
+                <form id="formCreateUser" onsubmit="handleCreateUser(event)">
+                    <div class="form-group">
+                        <label class="form-label">Họ và tên</label>
+                        <input id="cName" class="form-control" placeholder="Nguyễn Văn A" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input id="cEmail" type="email" class="form-control" placeholder="user@example.com" required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mật khẩu ban đầu</label>
+                        <input id="cPwd" type="password" class="form-control" placeholder="Tối thiểu 6 ký tự" required />
+                    </div>
+                    <div style="display:flex;gap:12px;">
+                        <div class="form-group" style="flex:1;">
+                            <label class="form-label">Ngôn ngữ nói</label>
+                            <select id="cSpeak" class="form-control"></select>
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label class="form-label">Ngôn ngữ nghe</label>
+                            <select id="cListen" class="form-control"></select>
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top:8px;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;">
+                            <input id="cIsAdmin" type="checkbox" style="width:16px;height:16px;" />
+                            <span>Cấp quyền <b>Quản trị viên (is_admin = True)</b></span>
+                        </label>
+                    </div>
+                    <div id="cErr" class="form-error" style="display:none;margin-top:10px;"></div>
+                    <div class="modal-foot" style="padding:14px 0 0;border:none;margin-top:14px;">
+                        <button type="button" class="btn btn-ghost" onclick="closeModal('modalCreateUser')">Hủy</button>
+                        <button type="submit" class="btn btn-primary" id="btnSubmitCreate">Tạo tài khoản</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Chỉnh sửa người dùng -->
+    <div id="modalEditUser" class="modal-bg" onclick="if(event.target===this)closeModal('modalEditUser')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>✏️ Cập nhật thông tin & Quyền</h3>
+                <button class="x-btn" onclick="closeModal('modalEditUser')">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editUserId" />
+                <div class="form-group">
+                    <label class="form-label">Họ và tên</label>
+                    <input id="eName" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input id="eEmail" type="email" class="form-control" required />
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label">Ngôn ngữ nói</label>
+                        <select id="eSpeak" class="form-control"></select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label">Ngôn ngữ nghe</label>
+                        <select id="eListen" class="form-control"></select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:8px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;">
+                        <input id="eIsAdmin" type="checkbox" style="width:16px;height:16px;" />
+                        <span>Quyền Quản trị viên (is_admin)</span>
+                    </label>
+                </div>
+                <div id="eErr" class="form-error" style="display:none;"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalEditUser')">Hủy</button>
+                <button class="btn btn-primary" onclick="handleSaveEditUser()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Đổi mật khẩu -->
+    <div id="modalResetPwd" class="modal-bg" onclick="if(event.target===this)closeModal('modalResetPwd')">
+        <div class="modal" style="max-width:380px;">
+            <div class="modal-head">
+                <h3>🔐 Đặt lại mật khẩu</h3>
+                <button class="x-btn" onclick="closeModal('modalResetPwd')">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resetUserId" />
+                <div style="font-size:.8rem;color:var(--g600);margin-bottom:12px;" id="resetUserEmailText"></div>
+                <div class="form-group">
+                    <label class="form-label">Mật khẩu mới</label>
+                    <input id="newPwd" type="password" class="form-control" placeholder="Ít nhất 6 ký tự" required />
+                </div>
+                <div id="pwdErr" class="form-error" style="display:none;"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalResetPwd')">Hủy</button>
+                <button class="btn btn-primary" onclick="handleSavePassword()">Đổi mật khẩu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        let allUsers = [], langs = [];
+        let page = 1; const PAGE_SIZE = 15;
+
+        async function initUsers() {
+            if (!A.require()) return;
+            renderSidebar('users.html');
+            renderTopbar('Quản lý Người dùng');
+            await Promise.all([loadLangFilter(), loadUsers()]);
+        }
+
+        async function loadLangFilter() {
+            try {
+                const res = await apiGet('/api/admin/languages');
+                langs = res.languages || [];
+                const sel = document.getElementById('filterLang');
+                const opts = langs.map(l => `<option value="${l.code}">${l.flag} ${l.name}</option>`).join('');
+                sel.innerHTML = '<option value="">Tất cả ngôn ngữ</option>' + opts;
+
+                document.getElementById('cSpeak').innerHTML = opts;
+                document.getElementById('cListen').innerHTML = opts;
+                document.getElementById('eSpeak').innerHTML = opts;
+                document.getElementById('eListen').innerHTML = opts;
+            } catch (_) { }
+        }
+
+        async function loadUsers() {
+            const q = document.getElementById('searchQ').value.trim();
+            const lang = document.getElementById('filterLang').value;
+            const role = document.getElementById('filterRole').value;
+
+            let path = `/api/admin/users?page=${page}&page_size=${PAGE_SIZE}`;
+            if (q) path += `&search=${encodeURIComponent(q)}`;
+            if (lang) path += `&language=${lang}`;
+            if (role) path += `&role=${role}`;
+
+            const tbody = document.getElementById('usersBody');
+            try {
+                const res = await apiGet(path);
+                allUsers = res.users || [];
+                document.getElementById('totalBadge').textContent = `${res.total} tài khoản`;
+                document.getElementById('filterResult').textContent = (q || lang || role) ? `${res.total} kết quả` : '';
+                renderTable(allUsers, res.total);
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--err);">⚠ ${xe(e.message)}</td></tr>`;
+            }
+        }
+
+        function renderTable(users, total) {
+            const tbody = document.getElementById('usersBody');
+            if (!users.length) {
+                tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">👥</div><h4>Không tìm thấy người dùng</h4></div></td></tr>`;
+                document.getElementById('usersPagination').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>
+                        <div class="cell-name">
+                            <div class="cell-av">${(u.full_name || 'U').charAt(0).toUpperCase()}</div>
+                            <div>
+                                <div style="font-size:.82rem;font-weight:600;color:var(--g900);">${xe(u.full_name)}</div>
+                                <div style="font-size:.7rem;color:var(--g500);">ID: #${u.id}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="color:var(--g700);">${xe(u.email)}</td>
+                    <td>
+                        ${u.is_admin 
+                            ? `<span class="badge badge-ok" style="font-weight:600;">Admin</span>` 
+                            : `<span class="badge badge-gray">User</span>`}
+                    </td>
+                    <td><span class="badge badge-primary">${u.speaking_language}</span></td>
+                    <td><span class="badge badge-blue">${u.listening_language}</span></td>
+                    <td style="font-size:.75rem;color:var(--g600);">
+                        <b>${u.hosted_rooms_count}</b> tạo / <b>${u.joined_rooms_count}</b> tham gia
+                    </td>
+                    <td style="color:var(--g500);font-size:.75rem;">${fmtDate(u.created_at)}</td>
+                    <td class="td-actions" style="text-align:right;">
+                        <a href="user-detail.html?id=${u.id}" class="btn btn-ghost btn-xs">👁 Chi tiết</a>
+                        <button class="btn btn-secondary btn-xs" onclick="openEditUserModal(${u.id})">✏️ Sửa</button>
+                        <button class="btn btn-ghost btn-xs" onclick="openResetPasswordModal(${u.id}, '${xe(u.email)}')">🔑</button>
+                        <button class="btn btn-danger btn-xs" onclick="confirmDeleteUser(${u.id}, '${xe(u.email)}')">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            renderPagination('usersPagination', total, page, PAGE_SIZE, 'goPage');
+        }
+
+        function goPage(p) {
+            page = p;
+            loadUsers();
+        }
+
+        function openCreateUserModal() {
+            document.getElementById('cName').value = '';
+            document.getElementById('cEmail').value = '';
+            document.getElementById('cPwd').value = '';
+            document.getElementById('cIsAdmin').checked = false;
+            document.getElementById('cErr').style.display = 'none';
+            openModal('modalCreateUser');
+        }
+
+        async function handleCreateUser(e) {
+            e.preventDefault();
+            const errEl = document.getElementById('cErr');
+            errEl.style.display = 'none';
+
+            const payload = {
+                full_name: document.getElementById('cName').value.trim(),
+                email: document.getElementById('cEmail').value.trim(),
+                password: document.getElementById('cPwd').value,
+                speaking_language: document.getElementById('cSpeak').value,
+                listening_language: document.getElementById('cListen').value,
+                is_admin: document.getElementById('cIsAdmin').checked,
+            };
+
+            try {
+                await apiPost('/api/admin/users', payload);
+                T.ok('Đã tạo tài khoản', payload.email);
+                closeModal('modalCreateUser');
+                loadUsers();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function openEditUserModal(id) {
+            const u = allUsers.find(x => x.id === id);
+            if (!u) return;
+
+            document.getElementById('editUserId').value = u.id;
+            document.getElementById('eName').value = u.full_name;
+            document.getElementById('eEmail').value = u.email;
+            document.getElementById('eSpeak').value = u.speaking_language;
+            document.getElementById('eListen').value = u.listening_language;
+            document.getElementById('eIsAdmin').checked = !!u.is_admin;
+            document.getElementById('eErr').style.display = 'none';
+            openModal('modalEditUser');
+        }
+
+        async function handleSaveEditUser() {
+            const id = document.getElementById('editUserId').value;
+            const errEl = document.getElementById('eErr');
+            errEl.style.display = 'none';
+
+            const payload = {
+                full_name: document.getElementById('eName').value.trim(),
+                email: document.getElementById('eEmail').value.trim(),
+                speaking_language: document.getElementById('eSpeak').value,
+                listening_language: document.getElementById('eListen').value,
+                is_admin: document.getElementById('eIsAdmin').checked,
+            };
+
+            try {
+                await apiPut(`/api/admin/users/${id}`, payload);
+                T.ok('Cập nhật thành công', payload.email);
+                closeModal('modalEditUser');
+                loadUsers();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function openResetPasswordModal(id, email) {
+            document.getElementById('resetUserId').value = id;
+            document.getElementById('resetUserEmailText').textContent = `Tài khoản: ${email}`;
+            document.getElementById('newPwd').value = '';
+            document.getElementById('pwdErr').style.display = 'none';
+            openModal('modalResetPwd');
+        }
+
+        async function handleSavePassword() {
+            const id = document.getElementById('resetUserId').value;
+            const pwd = document.getElementById('newPwd').value;
+            const errEl = document.getElementById('pwdErr');
+            errEl.style.display = 'none';
+
+            if (!pwd || pwd.length < 6) {
+                errEl.textContent = 'Mật khẩu phải tối thiểu 6 ký tự';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                await apiPut(`/api/admin/users/${id}/password`, { new_password: pwd });
+                T.ok('Đã đổi mật khẩu', '');
+                closeModal('modalResetPwd');
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        async function confirmDeleteUser(id, email) {
+            if (!confirm(`Bạn có chắc chắn muốn xóa tài khoản [${email}]? Hành động này sẽ hủy quyền và gỡ bỏ khỏi phòng họp.`)) return;
+            try {
+                const res = await apiDelete(`/api/admin/users/${id}`);
+                T.ok('Đã xóa', res.message || email);
+                loadUsers();
+            } catch (err) {
+                T.err('Lỗi xóa người dùng', err.message);
+            }
+        }
+
+        initUsers();
+    </script>
+</body>
+
+</html>

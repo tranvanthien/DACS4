@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>STT Test – AI Meeting Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 0 16px;
+            background: #f5f5f5;
+        }
+
+        h2 {
+            color: #1a1a2e;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 4px #0001;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+
+        label {
+            font-size: 13px;
+            color: #555;
+        }
+
+        select,
+        input {
+            padding: 7px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #btnStart {
+            background: #22c55e;
+            color: #fff;
+        }
+
+        #btnStop {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        button:disabled {
+            opacity: .4;
+            cursor: default;
+        }
+
+        .stat {
+            font-size: 13px;
+            color: #555;
+            margin: 3px 0;
+        }
+
+        .stat b {
+            color: #1a1a2e;
+        }
+
+        #transcriptBox {
+            min-height: 120px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+            background: #fafafa;
+            font-size: 15px;
+        }
+
+        .t-item {
+            margin-bottom: 10px;
+            border-left: 3px solid #4f46e5;
+            padding-left: 10px;
+        }
+
+        .t-item .conf {
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        .t-item .text {
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+
+        .rejected {
+            border-color: #ef4444;
+            color: #ef4444;
+            font-size: 13px;
+        }
+
+        #logBox {
+            height: 160px;
+            overflow-y: auto;
+            font-size: 12px;
+            background: #1a1a2e;
+            color: #a0f0a0;
+            padding: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🎙️ STT Test – PCM AudioWorklet</h2>
+
+    <div class="card">
+        <div class="row">
+            <div>
+                <label>Room Code</label><br>
+                <input id="roomCode" placeholder="ABC123" style="width:120px" />
+            </div>
+            <div>
+                <label>User ID</label><br>
+                <input id="userId" type="number" placeholder="1" style="width:80px" />
+            </div>
+            <div>
+                <label>Ngôn ngữ nói</label><br>
+                <select id="langSelect"></select>
+            </div>
+        </div>
+        <div class="row">
+            <button id="btnConnect" onclick="connectWS()">🔌 Connect</button>
+            <button id="btnStart" onclick="startRec()" disabled>🎙️ Start</button>
+            <button id="btnStop" onclick="stopRec()" disabled>⏹ Stop</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <b>Status</b>
+        <div class="stat">WebSocket: <b id="wsStatus">Disconnected</b></div>
+        <div class="stat">Audio: <b id="audioStatus">–</b></div>
+        <div class="stat">VAD: <b id="vadStatus">–</b></div>
+        <div class="stat">Bytes sent: <b id="bytesSent">0</b></div>
+        <div class="stat">Last latency: <b id="latency">–</b></div>
+        <div class="stat">Speaking language: <b id="langDisplay">–</b></div>
+    </div>
+
+    <div class="card">
+        <b>📝 Transcript</b>
+        <div id="transcriptBox" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card">
+        <b>🖥 Server Log</b>
+        <div id="logBox"></div>
+    </div>
+
+    <script src="audio-recorder.js"></script>
+    <script>
+        const API = 'http://127.0.0.1:8000';
+        const WS = 'ws://127.0.0.1:8000';
+
+        const LANGUAGES = [
+            { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+            { code: 'en', name: 'English', flag: '🇬🇧' },
+            { code: 'ko', name: '한국어', flag: '🇰🇷' },
+            { code: 'ja', name: '日本語', flag: '🇯🇵' },
+            { code: 'zh', name: '中文', flag: '🇨🇳' },
+            { code: 'fr', name: 'Français', flag: '🇫🇷' },
+            { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+            { code: 'es', name: 'Español', flag: '🇪🇸' },
+        ];
+
+        let ws = null;
+        let recorder = null;
+        let bytesSent = 0;
+        let startTime = null;
+
+        // Populate language dropdown
+        const sel = document.getElementById('langSelect');
+        LANGUAGES.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l.code;
+            opt.textContent = `${l.flag} ${l.name}`;
+            sel.appendChild(opt);
+        });
+
+        function log(msg) {
+            const box = document.getElementById('logBox');
+            const line = document.createElement('div');
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            box.appendChild(line);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function connectWS() {
+            const roomCode = document.getElementById('roomCode').value.trim();
+            const userId = document.getElementById('userId').value.trim();
+            if (!roomCode || !userId) { alert('Nhập Room Code và User ID'); return; }
+
+            ws = new WebSocket(`${WS}/ws/rooms/${roomCode}/${userId}`);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => {
+                document.getElementById('wsStatus').textContent = 'Connected ✅';
+                document.getElementById('btnStart').disabled = false;
+                document.getElementById('btnConnect').disabled = true;
+                log('WebSocket connected');
+            };
+
+            ws.onmessage = (e) => {
+                if (e.data instanceof ArrayBuffer) return; // audio playback bỏ qua ở test này
+                try {
+                    const data = JSON.parse(e.data);
+                    handleMsg(data);
+                } catch { }
+            };
+
+            ws.onclose = () => {
+                document.getElementById('wsStatus').textContent = 'Disconnected';
+                document.getElementById('btnStart').disabled = true;
+                document.getElementById('btnConnect').disabled = false;
+                log('WebSocket disconnected');
+                ws = null;
+            };
+
+            ws.onerror = () => log('❌ WebSocket error');
+        }
+
+        function handleMsg(data) {
+            if (data.type === 'transcript') {
+                const latency = startTime ? ((Date.now() - startTime) / 1000).toFixed(2) + 's' : '–';
+                document.getElementById('latency').textContent = latency;
+                document.getElementById('vadStatus').textContent = 'Speech detected ✅';
+
+                const box = document.getElementById('transcriptBox');
+                const div = document.createElement('div');
+                div.className = 't-item';
+                div.innerHTML = `
+      <div class="conf">lang=${data.speaking_language} | confidence=${data.confidence?.toFixed(3) ?? 'n/a'} | latency=${latency}</div>
+      <div class="text">${data.text}</div>`;
+                box.prepend(div);
+                log(`[Transcript] "${data.text}" (${data.speaking_language})`);
+
+            } else if (data.type === 'transcript_rejected') {
+                const box = document.getElementById('transcriptBox');
+                const div = document.createElement('div');
+                div.className = 't-item rejected';
+                div.textContent = `⚠ Rejected: ${data.reason}`;
+                box.prepend(div);
+                log(`[Rejected] ${data.reason}`);
+
+            } else if (data.type === 'user_joined') {
+                log(`👋 User ${data.user_id} joined`);
+            } else if (data.type === 'error') {
+                log(`❌ ${data.message}`);
+                document.getElementById('audioStatus').textContent = data.message;
+            } else if (data.type === 'vad_start') {
+                document.getElementById('vadStatus').textContent = '🔴 Speaking...';
+            } else if (data.type === 'vad_end') {
+                document.getElementById('vadStatus').textContent = '⏳ Processing...';
+            }
+        }
+
+        async function startRec() {
+            const lang = document.getElementById('langSelect').value;
+            document.getElementById('langDisplay').textContent = lang;
+            bytesSent = 0;
+            startTime = Date.now();
+
+            recorder = new AudioRecorder({
+                ws,
+                onStatusChange: (s) => {
+                    document.getElementById('audioStatus').textContent = s;
+                    document.getElementById('btnStart').disabled = s === 'recording';
+                    document.getElementById('btnStop').disabled = s !== 'recording';
+                },
+                onChunkSent: (bytes) => {
+                    bytesSent += bytes;
+                    document.getElementById('bytesSent').textContent = bytesSent.toLocaleString() + ' bytes';
+                },
+            });
+
+            try {
+                await recorder.start(lang);
+                log(`🎙️ Recording started (${lang})`);
+            } catch (e) {
+                log(`❌ ${e.message}`);
+                document.getElementById('audioStatus').textContent = e.message;
+            }
+        }
+
+        function stopRec() {
+            if (recorder) {
+                recorder.stop();
+                startTime = Date.now(); // reset để đo latency từ lúc stop
+                log('⏹ Recording stopped, waiting for transcript...');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Lịch sử cuộc họp — LinguaMeet</title>
+    <link rel="stylesheet" href="user.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+    <div class="app-shell">
+        <nav class="topnav" id="topnav"></nav>
+
+        <div class="page-wrap">
+            <div class="page-head">
+                <h2>📋 Lịch sử cuộc họp</h2>
+                <button class="btn btn-ghost btn-sm" onclick="loadHistory()">🔄 Làm mới</button>
+            </div>
+
+            <!-- Filter bar -->
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                <input id="searchHist" type="text" class="form-control" style="max-width:260px;"
+                    placeholder="🔍 Tìm tên phòng, mã..." oninput="filterHistory()" />
+                <select id="filterStatus" class="form-control" style="max-width:160px;" onchange="filterHistory()">
+                    <option value="">Tất cả trạng thái</option>
+                    <option value="active">Đang mở</option>
+                    <option value="closed">Đã đóng</option>
+                </select>
+            </div>
+
+            <!-- List -->
+            <div class="card" id="histList">
+                <div style="padding:24px;text-align:center;"><span class="spin"></span></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="user.js"></script>
+    <script>
+        let user, allRooms = [];
+
+        async function init() {
+            user = U.require();
+            renderNav('history.html');
+            await loadHistory();
+        }
+
+        async function loadHistory() {
+            const el = document.getElementById('histList');
+            el.innerHTML = '<div style="padding:24px;text-align:center;"><span class="spin"></span></div>';
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/rooms`);
+                if (!res.ok) throw new Error();
+                allRooms = await res.json();
+                renderList(allRooms);
+            } catch (_) {
+                el.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h4>Không tải được</h4><p>Kiểm tra kết nối máy chủ</p></div>`;
+            }
+        }
+
+        function filterHistory() {
+            const q = document.getElementById('searchHist').value.toLowerCase();
+            const s = document.getElementById('filterStatus').value;
+            const filtered = allRooms.filter(r => {
+                const matchQ = !q || r.room_name.toLowerCase().includes(q) || r.room_code.toLowerCase().includes(q);
+                const matchS = !s || (s === 'active' ? r.is_active : !r.is_active);
+                return matchQ && matchS;
+            });
+            renderList(filtered);
+        }
+
+        function renderList(rooms) {
+            const el = document.getElementById('histList');
+            if (!rooms.length) {
+                el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><h4>Chưa có cuộc họp</h4><p>Tạo hoặc tham gia phòng từ trang chủ</p></div>`;
+                return;
+            }
+            el.innerHTML = rooms.map(r => `
+      <div class="hist-row">
+        <div class="hist-icon">📹</div>
+        <div class="hist-info">
+          <div class="hist-name">${x(r.room_name)}</div>
+          <div class="hist-meta">
+            <span style="font-family:monospace;color:var(--p);background:var(--pbg);padding:1px 7px;border-radius:4px;">${x(r.room_code)}</span>
+            &nbsp;·&nbsp; ${fmtDT(r.joined_at)}
+            ${r.host_id === user.id ? ' &nbsp;·&nbsp; <span style="color:var(--p);font-size:.72rem;font-weight:600;">Bạn tạo</span>' : ''}
+          </div>
+        </div>
+        <div class="hist-actions">
+          <span class="badge ${r.is_active ? 'badge-ok' : 'badge-gray'}">${r.is_active ? 'Đang mở' : 'Đã đóng'}</span>
+          ${r.is_active ? `<button class="btn btn-primary btn-sm" onclick="quickJoin('${x(r.room_code)}')">Vào phòng</button>` : ''}
+          <a href="detail.html?room=${x(r.room_code)}" class="btn btn-ghost btn-sm">Chi tiết</a>
+        </div>
+      </div>
+    `).join('');
+        }
+
+        function quickJoin(code) {
+            const p = new URLSearchParams({ room: code, speakLang: user.speaking_language || 'vi', listenLang: user.listening_language || 'en' });
+            location.href = `lobby.html?${p}`;
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

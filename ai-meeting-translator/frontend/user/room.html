@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>Phòng họp — LinguaMeet</title>
+  <link rel="stylesheet" href="user.css" />
+</head>
+
+<body style="overflow:hidden;">
+  <div id="toast-container"></div>
+
+  <div class="room-shell">
+
+    <!-- ══════════════════════════════════════════════════════
+         TOPBAR
+    ══════════════════════════════════════════════════════ -->
+    <div class="room-topbar">
+
+      <!-- Left: Brand + Room code -->
+      <div class="room-topbar-left">
+        <span class="rtitle">
+          <span class="rtitle-icon">🌐</span>
+          LinguaMeet
+        </span>
+        <span class="rcode" id="rcodeChip" onclick="copyRoomCode()" title="Nhấn để sao chép mã">📋 —</span>
+        <button class="btn-invite-pill" onclick="openInviteModal()" title="Mời người khác tham gia">
+          🔗 Mời tham gia
+        </button>
+      </div>
+
+      <!-- Center: Timer + Participants + Language -->
+      <div class="room-topbar-center">
+        <span class="duration-timer" id="durationTimer">00:00:00</span>
+        <span id="participantCount"
+          style="font-size:.78rem;color:var(--text-muted);display:flex;align-items:center;gap:4px;">
+          👥 <span id="participantNum">1</span> người
+        </span>
+        <span class="lang-badge-pill" id="langPill">🌐 VI ↔ EN</span>
+      </div>
+
+      <!-- Right: WS Status + User pill -->
+      <div class="room-topbar-right">
+        <span class="ws-pill connecting" id="wsPill">⬤ Đang kết nối...</span>
+        <div id="hostPill"
+          style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:var(--rf);padding:5px 12px 5px 7px;">
+          <div class="avatar av-sm" id="hostAvatar">U</div>
+          <span
+            style="font-size:.8rem;font-weight:600;color:var(--text-white);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"
+            id="hostName">Người dùng</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         MAIN BODY: STAGE + SIDEBAR
+    ══════════════════════════════════════════════════════ -->
+    <div class="room-body" id="roomBody">
+
+      <!-- ── Video Stage ── -->
+      <div class="room-stage" id="roomStage">
+
+        <!-- Presenter main area (shown only in presenter-mode) -->
+        <div class="stage-main" id="stageMain">
+          <div class="presenter-label" id="stageLabel">
+            <span class="presenter-dot"></span>
+            <span id="stageLabelText"></span>
+          </div>
+          <video id="stageVideo" autoplay playsinline></video>
+        </div>
+
+        <!-- Video grid / thumbnail strip -->
+        <div class="video-grid" id="videoGrid"></div>
+
+        <!-- No-peer placeholder -->
+        <div class="no-peer" id="noPeer">
+          <div class="icon" style="font-size:3rem;margin-bottom:12px;opacity:.55;">📹</div>
+          <h3 style="font-size:1rem;color:var(--text-muted);">Chưa có ai trong cuộc gọi</h3>
+          <p style="font-size:.78rem;margin-top:6px;">Nhấn "Tham gia cuộc gọi" ở thanh điều khiển bên dưới</p>
+        </div>
+
+        <!-- ── Bilingual Subtitle Banner (docked to bottom of stage) ── -->
+        <div class="room-subtitle" id="subOverlay" style="display:none;">
+          <div class="subtitle-banner">
+            <div class="sub-cc-icon">CC</div>
+            <div class="sub-content">
+              <div style="font-size:.7rem;color:var(--text-sub);font-weight:600;margin-bottom:3px;" id="subWho"></div>
+              <div class="sub-orig" id="subOrig"></div>
+              <div class="sub-trans" id="subTrans"></div>
+            </div>
+            <div class="sub-actions">
+              <span
+                style="font-size:.72rem;color:var(--text-sub);background:rgba(255,255,255,0.08);padding:3px 8px;border-radius:var(--rf);"
+                id="subLangLabel">VI→EN</span>
+              <button onclick="toggleTTS()" title="Bật/tắt TTS"
+                style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,0.08);border:none;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:.85rem;"
+                id="subTTSBtn">🔊</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── Right Sidebar (3 tabs) ── -->
+      <div class="room-sidebar" id="roomSidebar">
+
+        <!-- Tab Headers -->
+        <div class="sidebar-tabs">
+          <div class="sidebar-tab active" id="tab-trans" onclick="switchTab('trans')">🔤 Phiên dịch</div>
+          <div class="sidebar-tab" id="tab-members" onclick="switchTab('members')">👥 Thành viên</div>
+        </div>
+
+        <!-- ── PANE: Phiên dịch ── -->
+        <div class="sidebar-pane active" id="pane-trans">
+          <!-- Language controls -->
+          <div class="trans-controls-row">
+            <div class="lang-dropdown-group">
+              <label>TÔI NÓI</label>
+              <select id="tpSpeak" class="lang-select-sm" onchange="saveLangs()"></select>
+            </div>
+            <span style="color:var(--text-sub);flex-shrink:0;font-size:.9rem;">→</span>
+            <div class="lang-dropdown-group">
+              <label>TÔI NGHE</label>
+              <select id="tpListen" class="lang-select-sm" onchange="saveLangs()"></select>
+            </div>
+            <button class="btn btn-ghost btn-xs" onclick="clearFeed()" title="Xóa lịch sử"
+              style="flex-shrink:0;">🗑</button>
+          </div>
+
+          <!-- STT / Translation Status -->
+          <div class="tp-status idle" id="tpStatus">
+            <span class="tp-dot"></span>
+            <span id="tpStatusTxt">Sẵn sàng</span>
+          </div>
+
+          <!-- Translation Feed -->
+          <div class="chat-scroll-area" id="tpFeed">
+            <div style="text-align:center;padding:32px 16px;color:var(--text-muted);">
+              <div style="font-size:1.8rem;margin-bottom:8px;">🎤</div>
+              <div style="font-size:.82rem;">Tham gia cuộc gọi để bắt đầu phiên dịch</div>
+            </div>
+          </div>
+
+          <!-- Autoplay Banner -->
+          <div class="autoplay-banner" id="autoplayBanner">
+            🔇 Trình duyệt chặn tự động phát âm thanh.
+            <button class="btn btn-sm" style="background:var(--warn);color:#fff;margin-left:auto;"
+              onclick="unlockAudio()">Bật âm thanh</button>
+          </div>
+
+          <!-- TTS Toggle -->
+          <div class="tp-tts-row">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <span class="toggle on" id="ttsToggle" onclick="toggleTTS()"></span>
+              <span style="font-size:.82rem;color:var(--text-muted);">Giọng đọc AI (TTS)</span>
+            </label>
+            <span style="font-size:.72rem;color:var(--text-sub);" id="ttsProvTxt"></span>
+          </div>
+        </div>
+
+        <!-- ── PANE: Thành viên ── -->
+        <div class="sidebar-pane" id="pane-members">
+          <div class="rmp-head">
+            <span class="rmp-title">👥 Thành viên trong phòng</span>
+            <span class="rmp-count" id="rmpCount">0</span>
+          </div>
+          <div class="rmp-list" id="rmpList">
+            <div class="rmp-empty">Chưa có ai</div>
+          </div>
+        </div>
+
+        <!-- ── AI Status Widget (bottom of sidebar, always visible) ── -->
+        <div class="ai-status-widget">
+          <div class="ai-status-widget-hd">
+            <span>⚡ Trạng thái AI</span>
+            <button onclick="refreshAIStatus()"
+              style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:.82rem;padding:2px 6px;border-radius:4px;"
+              title="Làm mới">↺</button>
+          </div>
+          <div class="ai-chips-grid">
+            <div class="ai-chip">
+              <div class="ai-chip-name">Whisper STT</div>
+              <div class="ai-chip-val" id="aiWhisper">—</div>
+            </div>
+            <div class="ai-chip">
+              <div class="ai-chip-name">Dịch thuật</div>
+              <div class="ai-chip-val" id="aiTranslate">—</div>
+            </div>
+            <div class="ai-chip">
+              <div class="ai-chip-name">TTS</div>
+              <div class="ai-chip-val" id="aiTTS">—</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+         BOTTOM CONTROL BAR
+    ══════════════════════════════════════════════════════ -->
+    <div class="ctrl-bar">
+
+      <!-- Left: Connection status -->
+      <div class="ctrl-bar-left">
+        <span class="conn-pill" id="connPill">
+          <span class="dot dot-ok dot-pulse"></span>
+          Kết nối ổn định
+        </span>
+      </div>
+
+      <!-- Center: Controls -->
+      <div class="ctrl-bar-center">
+
+        <!-- Join call (shown before joining) -->
+        <div class="ctrl-btn-wrap" id="wrapJoin">
+          <button class="ctrl-btn active" onclick="joinCall()" title="Tham gia cuộc gọi"
+            style="width:52px;height:52px;font-size:1.3rem;">📞</button>
+          <span class="ctrl-label">Tham gia</span>
+        </div>
+
+        <!-- Mic (shown after joining) -->
+        <div class="ctrl-btn-wrap" id="wrapMic" style="display:none;">
+          <button class="ctrl-btn" id="micBtn" onclick="toggleMic()" title="Bật/tắt micro">🎤</button>
+          <span class="ctrl-label" id="micLabel">Mic</span>
+        </div>
+
+        <!-- Camera (shown after joining) -->
+        <div class="ctrl-btn-wrap" id="wrapCam" style="display:none;">
+          <button class="ctrl-btn" id="camBtn" onclick="toggleCam()" title="Bật/tắt camera">📷</button>
+          <span class="ctrl-label" id="camLabel">Camera</span>
+        </div>
+
+        <!-- Screen share (shown after joining) -->
+        <div class="ctrl-btn-wrap" id="wrapScreen" style="display:none;">
+          <button class="ctrl-btn" id="screenBtn" onclick="toggleScreen()" title="Chia sẻ màn hình">🖥️</button>
+          <span class="ctrl-label" id="screenLabel">Màn hình</span>
+        </div>
+
+        <!-- Subtitle toggle -->
+        <div class="ctrl-btn-wrap">
+          <button class="ctrl-btn active" id="subBtn" onclick="toggleSub()" title="Phụ đề song ngữ"
+            style="font-size:.82rem;font-weight:700;letter-spacing:-.02em;">CC</button>
+          <span class="ctrl-label">Phụ đề</span>
+        </div>
+
+        <!-- Invite -->
+        <div class="ctrl-btn-wrap">
+          <button class="ctrl-btn" id="inviteBtn" onclick="openInviteModal()"
+            title="Mời tham gia qua QR & Link">👥</button>
+          <span class="ctrl-label">Mời bạn</span>
+        </div>
+
+        <!-- Leave room -->
+        <div class="ctrl-btn-wrap">
+          <button class="ctrl-btn btn-leave" onclick="leaveMeeting()" title="Rời phòng">📴</button>
+          <span class="ctrl-label">Rời phòng</span>
+        </div>
+
+      </div>
+
+      <!-- Right: sidebar toggle -->
+      <div class="ctrl-bar-right">
+        <button class="ctrl-btn" onclick="togglePanel()" title="Thu gọn/Mở bảng dịch" style="font-size:1rem;"
+          id="sidebarToggleBtn">⇄</button>
+        <span class="ctrl-label" style="font-size:.65rem;">Bảng dịch</span>
+      </div>
+
+    </div>
+
+  </div><!-- /.room-shell -->
+
+  <script src="../qrcode.min.js"></script>
+  <script src="../webrtc-service.js"></script>
+  <script src="../auto-stt.js"></script>
+  <script src="user.js"></script>
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ═══════════════════════════════════════════════════════════════════════════
+    let user = null, roomCode = '', userName = 'Bạn';
+    let currentSpeak = 'vi', currentListen = 'en';
+    let ws = null, roomPeers = [];
+    let ttsEnabled = true, ttsAudioStore = new Map(), pendingMsgIds = [], ttsQueue = [], ttsPlaying = false;
+    let micOn = true, camOn = false, subVisible = true, panelVisible = true;
+    let langList = [];
+    let _subTimer = null;
+    let _startTime = null, _timerInterval = null;
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BOOT
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function boot() {
+      user = U.require();
+      const p = new URLSearchParams(location.search);
+      roomCode = p.get('room') || '';
+      currentSpeak = p.get('speakLang') || user.speaking_language || 'vi';
+      currentListen = p.get('listenLang') || user.listening_language || 'en';
+      userName = p.get('userName') || user.full_name || 'User';
+
+      if (!roomCode) { location.href = 'home.html'; return; }
+
+      // Topbar info
+      document.getElementById('rcodeChip').textContent = `📋 ${roomCode}`;
+      document.title = `${roomCode} — LinguaMeet`;
+      document.getElementById('hostName').textContent = userName;
+      document.getElementById('hostAvatar').textContent = userName.charAt(0).toUpperCase();
+
+      // Load languages
+      langList = await loadLangs();
+      const opts = langList.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+      ['tpSpeak', 'tpListen'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.innerHTML = opts;
+      });
+      document.getElementById('tpSpeak').value = currentSpeak;
+      document.getElementById('tpListen').value = currentListen;
+      updateLangPill();
+
+      // AutoSTT + WebRTC hooks
+      AutoSTT.onStatusChange = onSTTStatus;
+      WebRTCService.onStateChange = onRTCEvent;
+      WebRTCService.init();
+
+      // Render own tile
+      renderSelfTile();
+      addMember(user.id, userName, currentSpeak, true);
+
+      // Subtitle language label
+      updateSubLangLabel();
+
+      // Autoplay unlock
+      document.addEventListener('click', () => { if (!ttsPlaying && ttsQueue.length) ttsPlayNext(); }, { once: false });
+
+      // AI status (deferred)
+      setTimeout(refreshAIStatus, 2000);
+
+      // Đảm bảo membership tồn tại trước khi kết nối WebSocket.
+      // lobby.html đã gọi join, nhưng room.html có thể được vào từ nhiều đường khác
+      // (link trực tiếp, reload trang, danh sách phòng). Gọi lại join là idempotent — 
+      // backend chỉ tạo mới nếu chưa có record, hoặc reactivate nếu is_active=false.
+      try {
+        const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join?user_id=${user.id}`, { method: 'POST' });
+        if (!joinRes.ok) {
+          const err = await joinRes.json().catch(() => ({}));
+          // Phòng không tồn tại hoặc đã đóng — không nên vào
+          T.err('Không thể vào phòng', err.detail || `Lỗi ${joinRes.status}`);
+          setTimeout(() => { location.href = 'home.html'; }, 2500);
+          return;
+        }
+      } catch (_) {
+        // Lỗi mạng — vẫn thử kết nối WS, backend sẽ báo lỗi nếu thực sự không phải member
+        console.warn('[boot] join API failed, proceeding to WS anyway');
+      }
+
+      connectWS();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TIMER
+    // ═══════════════════════════════════════════════════════════════════════════
+    function startTimer() {
+      if (_timerInterval) return;
+      _startTime = Date.now();
+      _timerInterval = setInterval(() => {
+        const sec = Math.floor((Date.now() - _startTime) / 1000);
+        const h = String(Math.floor(sec / 3600)).padStart(2, '0');
+        const m = String(Math.floor((sec % 3600) / 60)).padStart(2, '0');
+        const s = String(sec % 60).padStart(2, '0');
+        document.getElementById('durationTimer').textContent = `${h}:${m}:${s}`;
+      }, 1000);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SIDEBAR TABS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function switchTab(name) {
+      ['trans', 'members'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
+        document.getElementById(`pane-${t}`).classList.toggle('active', t === name);
+      });
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LANG PILL
+    // ═══════════════════════════════════════════════════════════════════════════
+    function updateLangPill() {
+      const speakFlag = langList.find(l => l.code === currentSpeak)?.flag || currentSpeak.toUpperCase();
+      const listenFlag = langList.find(l => l.code === currentListen)?.flag || currentListen.toUpperCase();
+      document.getElementById('langPill').textContent = `🌐 ${speakFlag} ↔ ${listenFlag}`;
+      updateSubLangLabel();
+    }
+
+    function updateSubLangLabel() {
+      document.getElementById('subLangLabel').textContent = `${currentSpeak.toUpperCase()}→${currentListen.toUpperCase()}`;
+    }
+
+    function updateParticipantCount() {
+      const count = _members.size;
+      document.getElementById('participantNum').textContent = count;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AI STATUS
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function refreshAIStatus() {
+      try {
+        const res = await fetch(`${API}/api/health/ai`);
+        if (!res.ok) throw new Error();
+        const d = await res.json();
+        const services = d.services || {};
+        const whisperEl = document.getElementById('aiWhisper');
+        const translateEl = document.getElementById('aiTranslate');
+        const ttsEl = document.getElementById('aiTTS');
+
+        function renderLatency(el, svc) {
+          if (!svc) { el.textContent = '—'; el.style.color = 'var(--text-sub)'; return; }
+          if (svc.status === 'ok') {
+            const ms = svc.latency_ms != null ? `${Math.round(svc.latency_ms)}ms` : 'OK';
+            el.textContent = ms;
+            el.style.color = svc.latency_ms < 500 ? 'var(--ok)' : 'var(--warn)';
+          } else {
+            el.textContent = 'Lỗi';
+            el.style.color = 'var(--err)';
+          }
+        }
+        renderLatency(whisperEl, services.whisper);
+        renderLatency(translateEl, services.translation);
+        renderLatency(ttsEl, services.tts);
+      } catch (_) {
+        ['aiWhisper', 'aiTranslate', 'aiTTS'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.textContent = '?'; el.style.color = 'var(--text-sub)'; }
+        });
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WEBSOCKET
+    // ═══════════════════════════════════════════════════════════════════════════
+    function connectWS() {
+      setWsPill('connecting');
+      ws = new WebSocket(`${WS_BASE}/ws/rooms/${roomCode}/${user.id}`);
+      ws.binaryType = 'arraybuffer';
+      ws.onopen = () => { setWsPill('connected'); };
+      ws.onmessage = e => {
+        if (e.data instanceof ArrayBuffer) {
+          const buf = e.data;
+          if (buf.byteLength >= 4) {
+            const h = new Uint8Array(buf, 0, 4);
+            if (h[0] === 84 && h[1] === 84 && h[2] === 83 && h[3] === 0) { onTTSFrame(buf.slice(4)); return; }
+          }
+          return;
+        }
+        try { dispatch(JSON.parse(e.data)); } catch (err) { console.error('[WS] dispatch error:', err, e.data?.substring?.(0, 200)); }
+      };
+      ws.onclose = () => {
+        setWsPill('error');
+        setTimeout(() => { if (!ws || ws.readyState === WebSocket.CLOSED) connectWS(); }, 3000);
+      };
+      ws.onerror = () => setWsPill('error');
+    }
+
+    function dispatch(d) {
+      switch (d.type) {
+        case 'room_peers':
+          roomPeers = d.peers || [];
+          roomPeers.forEach(peerId => {
+            if (peerId === user.id) return;
+            if (_members.has(peerId)) return;
+            fetch(`${API}/api/users/${peerId}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(u => {
+                const name = u?.full_name || `User ${peerId}`;
+                const lang = u?.speaking_language || '?';
+                addPeerTile(peerId, name);
+                addMember(peerId, name, lang, false);
+              })
+              .catch(() => {
+                addPeerTile(peerId, `User ${peerId}`);
+                addMember(peerId, `User ${peerId}`, '?', false);
+              });
+          });
+          break;
+        case 'user_joined':
+          if (d.user_id !== user.id) {
+            fetch(`${API}/api/users/${d.user_id}`)
+              .then(r => r.ok ? r.json() : null)
+              .then(u => {
+                const name = u?.full_name || `User ${d.user_id}`;
+                const lang = u?.speaking_language || '?';
+                addPeerTile(d.user_id, name);
+                addMember(d.user_id, name, lang, false);
+                T.info('Có người vào phòng', name);
+              })
+              .catch(() => {
+                addPeerTile(d.user_id, `User ${d.user_id}`);
+                addMember(d.user_id, `User ${d.user_id}`, '?', false);
+                T.info('Có người vào phòng', `User ${d.user_id}`);
+              });
+          }
+          break;
+        case 'user_left':
+          removePeerTile(d.user_id);
+          removeMember(d.user_id);
+          WebRTCService.handlePeerLeft?.(d.user_id);
+          T.warn('Có người rời phòng', 'User ' + d.user_id);
+          break;
+        case 'room_closed':
+          T.warn('Phòng đã đóng', d.message || 'Cuộc họp đã kết thúc');
+          if (ws) { ws.onclose = null; ws.close(); ws = null; }
+          setTimeout(() => { location.href = 'home.html'; }, 2000);
+          break;
+        case 'presenter_state':
+          if (d.user_id !== user.id) onRemotePresenterState(d.user_id, d.mode);
+          break;
+        case 'transcript': try { onTranscript(d); } catch (e) { console.error('[transcript]', e); } break;
+        case 'translation': try { onTranslation(d); } catch (e) { console.error('[translation]', e); } break;
+        case 'translation_error': try { onTranslationError(d); } catch (e) { console.error('[translation_error]', e); } break;
+        case 'tts_start': onTTSStart(d); break;
+        case 'tts_error': onTTSError(d); break;
+        case 'transcript_rejected': setTPStatus('idle', 'Không nhận được — thử lại'); break;
+        case 'audio_start': setTalkingTile(d.user_id, true); break;
+        case 'audio_stop': setTalkingTile(d.user_id, false); break;
+        case 'webrtc_ready':
+          if (WebRTCService.isInCall && d.user_id !== user.id && user.id < d.user_id) doOffer(d.user_id);
+          break;
+        case 'webrtc_offer':
+          if (WebRTCService.isInCall) { WebRTCService.setWebSocket(ws); WebRTCService.handleOffer(d.from_user_id, d.sdp); }
+          break;
+        case 'webrtc_answer': WebRTCService.handleAnswer(d.from_user_id, d.sdp); break;
+        case 'webrtc_ice_candidate': WebRTCService.handleIceCandidate(d.from_user_id, d.candidate); break;
+        case 'webrtc_leave': WebRTCService.handlePeerLeft?.(d.user_id); removePeerTile(d.user_id); break;
+        case 'error': {
+          const fatalErrors = ['User is not a member of this room', 'Room not found', 'Room is closed', 'User not found'];
+          if (fatalErrors.includes(d.message)) {
+            T.err('Không thể vào phòng', d.message);
+            // Ngăn auto-reconnect vô nghĩa — lỗi membership không tự khắc phục
+            ws = null;
+            setTimeout(() => { location.href = 'home.html'; }, 2500);
+          } else {
+            T.err('Lỗi hệ thống', d.message);
+          }
+          break;
+        }
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // STAGE LAYOUT (screen share > camera presenter > grid)
+    // ═══════════════════════════════════════════════════════════════════════════
+    const _sources = new Map();   // id → { stream, kind: 'screen'|'camera' }
+    const _remoteMode = new Map(); // peerId → 'screen'|'camera'|'none'
+    let _lastScreenId = null;
+    let _lastCameraId = null;
+    let _manualPinId = null;
+    let _stage = { active: false, id: null, kind: null };
+
+    function broadcastPresenter(mode) {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'presenter_state', mode }));
+      }
+    }
+
+    function setLocalSources({ camera, screen }) {
+      if (screen === undefined && camera === undefined) return;
+      if (screen === false) _sources.delete('self-screen');
+      else if (screen) {
+        _sources.set('self-screen', { stream: screen, kind: 'screen', tileId: 'tile-self' });
+        _lastScreenId = 'self-screen';
+      }
+      if (camera === false) _sources.delete('self-camera');
+      else if (camera) {
+        _sources.set('self-camera', { stream: camera, kind: 'camera', tileId: 'tile-self' });
+        _lastCameraId = 'self-camera';
+      }
+      applyStageLayout();
+    }
+
+    function setPeerSource(peerId, stream, kind) {
+      const id = String(peerId);
+      const hinted = _remoteMode.get(peerId) || kind || 'camera';
+      if (!stream) {
+        _sources.delete(id);
+        applyStageLayout();
+        return;
+      }
+      _sources.set(id, { stream, kind: hinted === 'screen' ? 'screen' : 'camera', tileId: `tile-${peerId}` });
+      if (hinted === 'screen') _lastScreenId = id;
+      else _lastCameraId = id;
+      applyStageLayout();
+    }
+
+    function onRemotePresenterState(peerId, mode) {
+      _remoteMode.set(peerId, mode);
+      const id = String(peerId);
+      const cur = _sources.get(id);
+      if (mode === 'none') {
+        if (cur) cur.kind = 'camera';
+      } else if (cur) {
+        cur.kind = mode === 'screen' ? 'screen' : 'camera';
+        if (mode === 'screen') _lastScreenId = id;
+        else _lastCameraId = id;
+      }
+      applyStageLayout();
+    }
+
+    function pickPresenter() {
+      const screens = [..._sources.entries()].filter(([, s]) => s.kind === 'screen');
+      if (screens.length) {
+        const preferred = screens.find(([id]) => id === _lastScreenId) || screens[screens.length - 1];
+        return { id: preferred[0], ...preferred[1] };
+      }
+      if (_manualPinId) {
+        const pinned = [..._sources.entries()].find(([, s]) => s.tileId === _manualPinId && s.kind === 'camera');
+        if (pinned) return { id: pinned[0], ...pinned[1] };
+      }
+      const cams = [..._sources.entries()].filter(([, s]) => s.kind === 'camera');
+      if (cams.length) {
+        const preferred = cams.find(([id]) => id === _lastCameraId) || cams[cams.length - 1];
+        return { id: preferred[0], ...preferred[1] };
+      }
+      return null;
+    }
+
+    function applyStageLayout() {
+      const stage = document.getElementById('roomStage');
+      const video = document.getElementById('stageVideo');
+      const labelEl = document.getElementById('stageLabelText');
+      if (!stage || !video || !labelEl) return;
+
+      const picked = pickPresenter();
+      document.querySelectorAll('.vid-tile.is-presenter').forEach(t => t.classList.remove('is-presenter'));
+
+      if (!picked) {
+        if (video.srcObject) video.srcObject = null;
+        stage.classList.remove('presenter-mode');
+        delete stage.dataset.presenterType;
+        _stage = { active: false, id: null, kind: null };
+        return;
+      }
+
+      const isLocal = picked.id === 'self-screen' || picked.id === 'self-camera';
+      const name = isLocal ? userName : (_members.get(Number(picked.id))?.name || `User ${picked.id}`);
+      labelEl.textContent = picked.kind === 'screen'
+        ? `🖥️ ${name} đang chia sẻ màn hình`
+        : `📹 ${name} đang trình bày`;
+      stage.dataset.presenterType = picked.kind;
+      stage.classList.add('presenter-mode');
+      video.muted = isLocal;
+      if (video.srcObject !== picked.stream) { video.srcObject = picked.stream; }
+      video.play().catch(() => { });
+      video.classList.toggle('is-screen', picked.kind === 'screen');
+
+      const tile = document.getElementById(picked.tileId);
+      if (tile) tile.classList.add('is-presenter');
+      _stage = { active: true, id: picked.id, kind: picked.kind };
+    }
+
+    function clearAllSources() {
+      _sources.clear();
+      _remoteMode.clear();
+      _lastScreenId = null;
+      _lastCameraId = null;
+      _manualPinId = null;
+      applyStageLayout();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // VIDEO TILES
+    // ═══════════════════════════════════════════════════════════════════════════
+    function renderSelfTile() {
+      const g = document.getElementById('videoGrid');
+      if (document.getElementById('tile-self')) return;
+      const t = document.createElement('div');
+      t.className = 'vid-tile'; t.id = 'tile-self';
+      t.innerHTML = `
+        <div class="vid-placeholder">
+          <div class="vav">${userName.charAt(0).toUpperCase()}</div>
+          <div class="vname">${x(userName)} (Bạn)</div>
+        </div>
+        <div class="vid-tile-bottom">
+          <span class="vid-name-badge">${x(userName)}</span>
+          <div class="vid-status-icons">
+            <span class="status-pill-icon" id="selfMicIcon" title="Mic">🎤</span>
+          </div>
+        </div>
+        <button class="pin-btn" onclick="pinTile('tile-self')" title="Ghim / bỏ ghim">⛶</button>`;
+      g.appendChild(t);
+      checkNoPeer();
+    }
+
+    function addPeerTile(peerId, peerName) {
+      const g = document.getElementById('videoGrid');
+      if (document.getElementById(`tile-${peerId}`)) return;
+      const name = peerName || _members.get(peerId)?.name || `User ${peerId}`;
+      const t = document.createElement('div');
+      t.className = 'vid-tile'; t.id = `tile-${peerId}`;
+      t.innerHTML = `
+        <div class="vid-placeholder">
+          <div class="vav">${name.charAt(0).toUpperCase()}</div>
+          <div class="vname">${x(name)}</div>
+        </div>
+        <div class="vid-tile-bottom">
+          <span class="vid-name-badge">${x(name)}</span>
+        </div>
+        <button class="pin-btn" onclick="pinTile('tile-${peerId}')" title="Ghim / bỏ ghim">⛶</button>`;
+      g.appendChild(t);
+      checkNoPeer();
+    }
+
+    function checkNoPeer() {
+      const grid = document.getElementById('videoGrid');
+      const count = grid.querySelectorAll('.vid-tile').length;
+      document.getElementById('noPeer').style.display = count > 0 ? 'none' : 'flex';
+    }
+
+    function removePeerTile(peerId) {
+      document.getElementById(`tile-${peerId}`)?.remove();
+      _sources.delete(String(peerId));
+      _remoteMode.delete(peerId);
+      if (_lastScreenId === String(peerId)) _lastScreenId = null;
+      if (_lastCameraId === String(peerId)) _lastCameraId = null;
+      if (_manualPinId === `tile-${peerId}`) _manualPinId = null;
+      applyStageLayout();
+      checkNoPeer();
+    }
+
+    function pinTile(tileId) {
+      _manualPinId = _manualPinId === tileId ? null : tileId;
+      applyStageLayout();
+    }
+
+    function setLocalVideo(stream) {
+      const tile = document.getElementById('tile-self');
+      if (!tile) return;
+      const placeholder = tile.querySelector('.vid-placeholder');
+      let vid = document.getElementById('vid-self');
+      if (!stream) {
+        if (vid) { vid.srcObject = null; vid.remove(); }
+        if (placeholder) placeholder.style.display = '';
+        return;
+      }
+      if (!vid) {
+        vid = document.createElement('video');
+        vid.id = 'vid-self'; vid.autoplay = true; vid.muted = true; vid.playsinline = true;
+        vid.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;border-radius:inherit;';
+        tile.appendChild(vid);
+      }
+      vid.srcObject = stream;
+      if (placeholder) placeholder.style.display = 'none';
+    }
+
+    function setPeerVideo(peerId, stream) {
+      const tile = document.getElementById(`tile-${peerId}`);
+      if (!tile) return;
+      const placeholder = tile.querySelector('.vid-placeholder');
+      let vid = document.getElementById(`vid-${peerId}`);
+      if (!stream) {
+        if (vid) { vid.srcObject = null; vid.remove(); }
+        if (placeholder) placeholder.style.display = '';
+        return;
+      }
+      if (!vid) {
+        vid = document.createElement('video');
+        vid.id = `vid-${peerId}`; vid.autoplay = true; vid.playsinline = true;
+        vid.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:1;border-radius:inherit;';
+        tile.appendChild(vid);
+      }
+      vid.srcObject = stream;
+      if (placeholder) placeholder.style.display = 'none';
+    }
+
+    function setTalkingTile(uid, talking) {
+      const id = uid === user.id ? 'tile-self' : `tile-${uid}`;
+      document.getElementById(id)?.classList.toggle('talking', talking);
+      document.getElementById(`rmp-${uid}`)?.classList.toggle('rmp-talking', talking);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // MEMBERS PANEL
+    // ═══════════════════════════════════════════════════════════════════════════
+    const _members = new Map(); // uid → { name, lang, isMe }
+
+    function addMember(uid, name, lang, isMe) {
+      _members.set(uid, { name, lang, isMe });
+      renderMembers();
+      updateParticipantCount();
+    }
+
+    function removeMember(uid) {
+      _members.delete(uid);
+      renderMembers();
+      updateParticipantCount();
+    }
+
+    function renderMembers() {
+      const list = document.getElementById('rmpList');
+      const countEl = document.getElementById('rmpCount');
+      if (!list) return;
+      if (countEl) countEl.textContent = _members.size;
+      if (!_members.size) { list.innerHTML = '<div class="rmp-empty">Chưa có ai</div>'; return; }
+      list.innerHTML = [..._members.entries()].map(([uid, m]) => `
+        <div class="rmp-item" id="rmp-${uid}">
+          <div class="rmp-av">${(m.name || 'U').charAt(0).toUpperCase()}<span class="rmp-ring"></span></div>
+          <div class="rmp-info">
+            <div class="rmp-name">${x(m.name)}</div>
+            ${m.lang && m.lang !== '?' ? `<div class="rmp-lang">🗣 ${m.lang}</div>` : ''}
+          </div>
+          ${m.isMe ? '<span class="rmp-badge-you">Bạn</span>' : ''}
+        </div>`).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // WEBRTC
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function joinCall() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) { T.err('Chưa kết nối', 'Đang chờ kết nối máy chủ...'); return; }
+      WebRTCService.setWebSocket(ws);
+      try {
+        const peersToOffer = roomPeers.filter(id => id > user.id);
+        await WebRTCService.joinCall(user.id, peersToOffer);
+      } catch (e) { T.err('Không vào được cuộc gọi', e.message); }
+    }
+
+    function onRTCEvent(ev) {
+      switch (ev.type) {
+        case 'call_joined':
+          document.getElementById('wrapJoin').style.display = 'none';
+          document.getElementById('wrapMic').style.display = 'flex';
+          document.getElementById('wrapCam').style.display = 'flex';
+          document.getElementById('wrapScreen').style.display = 'flex';
+          startTimer();
+          if (WebRTCService.localStream) {
+            const t = WebRTCService.localStream.getAudioTracks()[0];
+            if (t?.readyState === 'live') AutoSTT.start(WebRTCService.localStream, ws, currentSpeak);
+          }
+          break;
+        case 'call_left':
+          document.getElementById('wrapJoin').style.display = 'flex';
+          document.getElementById('wrapMic').style.display = 'none';
+          document.getElementById('wrapCam').style.display = 'none';
+          document.getElementById('wrapScreen').style.display = 'none';
+          if (_timerInterval) { clearInterval(_timerInterval); _timerInterval = null; }
+          setLocalVideo(null);
+          clearAllSources();
+          broadcastPresenter('none');
+          AutoSTT.stop(); setTPStatus('idle', 'Sẵn sàng');
+          break;
+        case 'mic_toggled':
+          document.getElementById('micBtn').classList.toggle('off', !ev.enabled);
+          document.getElementById('micLabel').textContent = ev.enabled ? 'Mic' : 'Tắt mic';
+          document.getElementById('selfMicIcon').textContent = ev.enabled ? '🎤' : '🔇';
+          document.getElementById('selfMicIcon').classList.toggle('muted', !ev.enabled);
+          if (!ev.enabled) { AutoSTT.stop(); setTPStatus('idle', 'Mic đã tắt'); }
+          else if (WebRTCService.localStream) setTimeout(() => { if (!AutoSTT.isRunning()) AutoSTT.start(WebRTCService.localStream, ws, currentSpeak); }, 100);
+          break;
+        case 'cam_toggled':
+          document.getElementById('camBtn').classList.toggle('active', ev.enabled);
+          document.getElementById('camBtn').textContent = ev.enabled ? '📹' : '📷';
+          document.getElementById('camLabel').textContent = ev.enabled ? 'Tắt cam' : 'Camera';
+          setLocalVideo(ev.enabled ? ev.stream : null);
+          if (ev.enabled) {
+            setLocalSources({ camera: ev.stream });
+            if (!WebRTCService.isScreenOn) broadcastPresenter('camera');
+          } else {
+            setLocalSources({ camera: false });
+            if (!WebRTCService.isScreenOn) broadcastPresenter('none');
+          }
+          break;
+        case 'screen_toggled':
+          document.getElementById('screenBtn').classList.toggle('active', ev.enabled);
+          document.getElementById('screenBtn').textContent = ev.enabled ? '⏹️' : '🖥️';
+          document.getElementById('screenLabel').textContent = ev.enabled ? 'Dừng' : 'Màn hình';
+          if (ev.enabled) {
+            setLocalSources({ screen: ev.stream });
+            broadcastPresenter('screen');
+          } else {
+            setLocalSources({ screen: false });
+            const cam = WebRTCService.localVideoStream;
+            setLocalVideo(cam || null);
+            if (cam) { setLocalSources({ camera: cam }); broadcastPresenter('camera'); }
+            else { broadcastPresenter('none'); }
+          }
+          break;
+        case 'peer_video':
+          setPeerVideo(ev.peerId, ev.stream);
+          setPeerSource(ev.peerId, ev.stream, ev.kind);
+          break;
+        case 'cam_error': T.err('Lỗi camera', ev.reason); break;
+        case 'screen_error': T.err('Lỗi chia sẻ màn hình', ev.reason); break;
+        case 'mic_error': T.err('Lỗi micro', ev.reason); break;
+        case 'peer_stream': addPeerTile(ev.peerId); break;
+        case 'peer_closed': removePeerTile(ev.peerId); break;
+        case 'autoplay_blocked': document.getElementById('autoplayBanner').classList.add('show'); break;
+      }
+    }
+
+    function toggleMic() { WebRTCService.toggleMic?.(); }
+    async function toggleCam() { await WebRTCService.toggleCamera?.(); }
+    async function toggleScreen() { await WebRTCService.toggleScreen?.(); }
+
+    async function doOffer(peerId) {
+      WebRTCService.setWebSocket(ws);
+      try { await WebRTCService.createOffer(peerId); } catch (_) { }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // AUTOSTT STATUS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function onSTTStatus(s) {
+      const map = { off: 'idle', cho: 'idle', nghe: 'listening', 'nhan-dien': 'thinking', dich: 'thinking' };
+      const txt = { off: 'Sẵn sàng', cho: 'Đang chờ giọng nói...', nghe: '🎤 Đang nghe...', 'nhan-dien': '⚙️ Đang nhận diện...', dich: '🌍 Đang dịch...' };
+      setTPStatus(map[s] || 'idle', txt[s] || s);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TRANSCRIPT / TRANSLATION
+    // ═══════════════════════════════════════════════════════════════════════════
+    function onTranscript(d) {
+      const isMe = d.user_id === user?.id;
+      const feed = document.getElementById('tpFeed');
+      if (!feed) return;
+      if (d.message_id && feed.querySelector(`[data-id="${d.message_id}"]`)) return;
+      const t = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      const who = isMe ? 'Bạn' : x(_members.get(d.user_id)?.name || `User ${d.user_id}`);
+      const whoInit = (who || 'U').charAt(0).toUpperCase();
+
+      const card = document.createElement('div');
+      card.className = `chat-card ${isMe ? 'me' : ''}`;
+      card.dataset.id = d.message_id || '';
+      card.innerHTML = `
+        <div class="chat-card-hd">
+          <div class="chat-user-info">
+            <div class="chat-av">${whoInit}</div>
+            <span class="chat-name">${who}</span>
+          </div>
+          <span class="chat-time">${t}</span>
+        </div>
+        <div class="chat-orig">${x(d.text)}</div>
+        <div class="chat-trans-box" data-trans>⏳ Đang dịch...</div>`;
+      feed.appendChild(card);
+      feed.scrollTop = feed.scrollHeight;
+      showSub({ who, orig: d.text, trans: null, status: 'Đang dịch...' });
+      setTalkingTile(d.user_id, true);
+      setTimeout(() => setTalkingTile(d.user_id, false), 2000);
+    }
+
+    function onTranslation(d) {
+      const feed = document.getElementById('tpFeed');
+      if (!feed) return;
+      if (d.message_id) {
+        const card = feed.querySelector(`[data-id="${d.message_id}"]`);
+        if (card) {
+          const tr = card.querySelector('[data-trans]');
+          if (tr) { tr.textContent = d.translated_text || ''; }
+        } else {
+          const isMe = d.user_id === user?.id;
+          const who = isMe ? 'Bạn' : x(_members.get(d.user_id)?.name || `User ${d.user_id}`);
+          const whoInit = (who || 'U').charAt(0).toUpperCase();
+          const t = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+          const card2 = document.createElement('div');
+          card2.className = `chat-card ${isMe ? 'me' : ''}`;
+          card2.dataset.id = d.message_id;
+          card2.innerHTML = `
+            <div class="chat-card-hd">
+              <div class="chat-user-info">
+                <div class="chat-av">${whoInit}</div>
+                <span class="chat-name">${who}</span>
+              </div>
+              <span class="chat-time">${t}</span>
+            </div>
+            <div class="chat-orig">${x(d.original_text || '')}</div>
+            <div class="chat-trans-box" data-trans>${x(d.translated_text || '')}</div>`;
+          feed.appendChild(card2);
+          feed.scrollTop = feed.scrollHeight;
+        }
+        showSub({ who: d.user_id === user?.id ? 'Bạn' : (_members.get(d.user_id)?.name || `User ${d.user_id}`), orig: d.original_text, trans: d.translated_text, status: '' });
+      }
+    }
+
+    function onTranslationError(d) {
+      if (!d.message_id) return;
+      const feed = document.getElementById('tpFeed');
+      const card = feed.querySelector(`[data-id="${d.message_id}"]`);
+      if (card) { const tr = card.querySelector('[data-trans]'); if (tr) { tr.textContent = '⚠ Không dịch được'; tr.style.color = 'var(--err)'; } }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TTS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function onTTSStart(d) { pendingMsgIds.push(d.message_id); }
+    function onTTSError(d) { const i = pendingMsgIds.indexOf(d.message_id); if (i !== -1) pendingMsgIds.splice(i, 1); }
+    function onTTSFrame(bytes) {
+      if (!ttsEnabled) { pendingMsgIds.shift(); return; }
+      const msgId = pendingMsgIds.shift();
+      if (!msgId) return;
+      ttsAudioStore.set(msgId, bytes);
+      ttsQueue.push(msgId);
+      if (!ttsPlaying) ttsPlayNext();
+    }
+
+    function ttsPlayNext() {
+      if (!ttsQueue.length) { ttsPlaying = false; return; }
+      ttsPlaying = true;
+      const id = ttsQueue.shift(), bytes = ttsAudioStore.get(id);
+      if (!bytes) { ttsPlayNext(); return; }
+      AutoSTT.setTTSPlaying(true);
+      const blob = new Blob([bytes], { type: 'audio/mpeg' }), url = URL.createObjectURL(blob), a = new Audio(url);
+      a.onended = a.onerror = () => { URL.revokeObjectURL(url); AutoSTT.setTTSPlaying(false); ttsPlayNext(); };
+      a.play().catch(() => {
+        URL.revokeObjectURL(url);
+        document.getElementById('autoplayBanner').classList.add('show');
+        document.addEventListener('click', () => { document.getElementById('autoplayBanner').classList.remove('show'); _retryPlay(bytes); }, { once: true });
+      });
+    }
+
+    function _retryPlay(bytes) {
+      const blob = new Blob([bytes], { type: 'audio/mpeg' }), url = URL.createObjectURL(blob), a = new Audio(url);
+      a.onended = a.onerror = () => { URL.revokeObjectURL(url); AutoSTT.setTTSPlaying(false); ttsPlayNext(); };
+      a.play().catch(() => { AutoSTT.setTTSPlaying(false); ttsPlayNext(); });
+    }
+
+    function toggleTTS() {
+      ttsEnabled = !ttsEnabled;
+      document.getElementById('ttsToggle').classList.toggle('on', ttsEnabled);
+      document.getElementById('subTTSBtn').style.opacity = ttsEnabled ? '1' : '0.4';
+      if (!ttsEnabled) { ttsQueue.length = 0; ttsPlaying = false; }
+      if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'tts_toggle', enabled: ttsEnabled }));
+    }
+
+    function unlockAudio() {
+      document.getElementById('autoplayBanner').classList.remove('show');
+      if (!ttsPlaying && ttsQueue.length) ttsPlayNext();
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SUBTITLE
+    // ═══════════════════════════════════════════════════════════════════════════
+    function showSub({ who, orig, trans, status }) {
+      if (!subVisible) return;
+      const ov = document.getElementById('subOverlay');
+      document.getElementById('subWho').textContent = who || '';
+      document.getElementById('subOrig').textContent = orig || '';
+      document.getElementById('subTrans').textContent = trans || status || '';
+      ov.style.display = 'block';
+      clearTimeout(_subTimer);
+      _subTimer = setTimeout(() => { ov.style.display = 'none'; }, trans ? 6000 : 8000);
+    }
+
+    function toggleSub() {
+      subVisible = !subVisible;
+      document.getElementById('subBtn').classList.toggle('active', subVisible);
+      if (!subVisible) document.getElementById('subOverlay').style.display = 'none';
+    }
+
+    function togglePanel() {
+      panelVisible = !panelVisible;
+      const sidebar = document.getElementById('roomSidebar');
+      const body = document.getElementById('roomBody');
+      sidebar.style.display = panelVisible ? 'flex' : 'none';
+      body.style.gridTemplateColumns = panelVisible ? '1fr 340px' : '1fr';
+      document.getElementById('sidebarToggleBtn').classList.toggle('active', panelVisible);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LANGUAGE SAVE
+    // ═══════════════════════════════════════════════════════════════════════════
+    async function saveLangs() {
+      const speak = document.getElementById('tpSpeak').value;
+      const listen = document.getElementById('tpListen').value;
+      currentSpeak = speak; currentListen = listen;
+      AutoSTT.updateLanguage?.(speak);
+      updateLangPill();
+      try {
+        await fetch(`${API}/api/users/${user.id}/languages`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ speaking_language: speak, listening_language: listen })
+        });
+        user.speaking_language = speak; user.listening_language = listen; U.save(user);
+        T.ok('Đã cập nhật ngôn ngữ', '');
+      } catch (_) { }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // LEAVE / UTILS
+    // ═══════════════════════════════════════════════════════════════════════════
+    function leaveMeeting() {
+      AutoSTT.stop();
+      if (WebRTCService.isInCall) WebRTCService.leaveCall();
+      if (ws) ws.close();
+      try { fetch(`${API}/api/rooms/${roomCode}/leave?user_id=${user.id}`, { method: 'POST' }).catch(() => { }); } catch (_) { }
+      location.href = 'home.html';
+    }
+
+    function copyRoomCode() { copyText(roomCode, document.getElementById('rcodeChip')); T.ok('Đã sao chép mã', roomCode); }
+    function clearFeed() { document.getElementById('tpFeed').innerHTML = ''; ttsAudioStore.clear(); ttsQueue.length = 0; }
+
+    function setWsPill(s) {
+      const e = document.getElementById('wsPill');
+      e.className = `ws-pill ${s}`;
+      const m = { connected: '⬤ Đã kết nối', connecting: '⬤ Đang kết nối...', error: '⬤ Mất kết nối' };
+      e.textContent = m[s] || s;
+      // Also update conn-pill in ctrl-bar
+      const cp = document.getElementById('connPill');
+      if (cp) {
+        if (s === 'connected') {
+          cp.style.background = 'rgba(16,185,129,0.12)';
+          cp.style.color = '#34d399';
+          cp.innerHTML = '<span class="dot dot-ok" style="animation:pulseGlow 1.8s infinite;"></span> Kết nối ổn định';
+        } else if (s === 'error') {
+          cp.style.background = 'rgba(239,68,68,0.12)';
+          cp.style.color = '#f87171';
+          cp.innerHTML = '<span class="dot dot-err"></span> Mất kết nối';
+        } else {
+          cp.style.background = 'rgba(245,158,11,0.12)';
+          cp.style.color = '#fbbf24';
+          cp.innerHTML = '<span class="dot dot-warn"></span> Đang kết nối...';
+        }
+      }
+    }
+
+    function setTPStatus(cls, txt) {
+      const e = document.getElementById('tpStatus');
+      e.className = `tp-status ${cls}`;
+      document.getElementById('tpStatusTxt').textContent = txt;
+    }
+
+    boot();
+  </script>
+
+  <!-- ══════════════════════════════════════════════════════
+       MODAL MỜI THAM GIA (QR CODE & LINK)
+  ══════════════════════════════════════════════════════ -->
+  <div class="modal-bg" id="modalInvite" onclick="if(event.target===this)closeInviteModal()">
+    <div class="modal" style="max-width:440px;">
+      <div class="modal-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1.25rem;">📱</span>
+          <h3 style="font-size:1.05rem;font-weight:700;color:var(--text-white);">Mời tham gia phòng họp</h3>
+        </div>
+        <button class="btn-close" onclick="closeInviteModal()">✕</button>
+      </div>
+
+      <div class="modal-body" style="text-align:center;">
+
+        <!-- Room Code Display -->
+        <div
+          style="font-size:.78rem;color:var(--text-sub);text-transform:uppercase;letter-spacing:.05em;font-weight:600;">
+          MÃ PHÒNG HỌP
+        </div>
+        <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 16px;">
+          <span id="inviteRoomCodeDisplay"
+            style="font-family:monospace;font-size:1.6rem;font-weight:800;color:var(--cyan);letter-spacing:.08em;">------</span>
+          <button class="btn btn-ghost btn-xs" onclick="copyInviteRoomCode(this)" title="Sao chép mã phòng">📋 Sao
+            chép</button>
+        </div>
+
+        <!-- QR Code Canvas Container -->
+        <div class="invite-qr-wrapper">
+          <div id="inviteQrBox" class="invite-qr-box"></div>
+          <div style="margin-top:10px;font-size:.78rem;color:var(--text-muted);">
+            Quét mã QR bằng camera điện thoại để vào họp ngay
+          </div>
+        </div>
+
+        <!-- Invite Link input & copy -->
+        <div class="form-group" style="text-align:left;margin-top:16px;">
+          <label class="form-label" style="font-size:.75rem;color:var(--text-sub);">ĐƯỜNG DẪN THAM GIA TRỰC TIẾP</label>
+          <div style="display:flex;gap:8px;">
+            <input id="inviteUrlInput" class="form-control form-control-sm" readonly
+              style="font-size:.8rem;font-family:monospace;background:rgba(0,0,0,0.25);" />
+            <button class="btn btn-primary btn-sm" id="btnCopyInviteLink" onclick="copyInviteUrl(this)"
+              style="flex-shrink:0;">
+              🔗 Sao chép
+            </button>
+          </div>
+        </div>
+
+        <!-- Network IP selector / tip -->
+        <div id="inviteNetworkTip"
+          style="margin-top:12px;padding:8px 12px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:var(--r);font-size:.75rem;color:var(--text-muted);text-align:left;line-height:1.45;">
+          💡 <span id="inviteNetworkHostTxt">Đang tải địa chỉ mạng...</span>
+        </div>
+
+      </div>
+
+      <div class="modal-foot" style="justify-content:space-between;">
+        <button class="btn btn-ghost btn-sm" onclick="downloadInviteQr()">
+          📥 Tải ảnh QR (PNG)
+        </button>
+        <button class="btn btn-primary btn-sm" onclick="closeInviteModal()">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ═══════════════════════════════════════════════════════════════════════════
+    // INVITE & QR CODE FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    let _qrInstance = null;
+    let _cachedLanBaseUrl = '';
+
+    async function getInviteBaseUrl() {
+      const host = location.hostname;
+      if (host !== 'localhost' && host !== '127.0.0.1') {
+        return location.origin;
+      }
+      if (_cachedLanBaseUrl) return _cachedLanBaseUrl;
+      try {
+        const res = await fetch('/api/network-info');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.primary_ip && data.primary_ip !== '127.0.0.1') {
+            _cachedLanBaseUrl = `http://${data.primary_ip}:${data.port || 8000}`;
+            return _cachedLanBaseUrl;
+          }
+        }
+      } catch (e) {
+        console.warn('Network info error:', e);
+      }
+      return location.origin;
+    }
+
+    async function openInviteModal() {
+      document.getElementById('inviteRoomCodeDisplay').textContent = roomCode;
+
+      const baseUrl = await getInviteBaseUrl();
+      const joinUrl = `${baseUrl}/ui/user/join.html?room=${encodeURIComponent(roomCode)}`;
+
+      const inputEl = document.getElementById('inviteUrlInput');
+      inputEl.value = joinUrl;
+
+      const tipTxt = document.getElementById('inviteNetworkHostTxt');
+      if (baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1')) {
+        tipTxt.innerHTML = `Đang dùng <b>localhost</b>. Để điện thoại quét vào được, hãy kết nối cùng Wi-Fi và chạy uvicorn với <code>--host 0.0.0.0</code>.`;
+      } else {
+        tipTxt.innerHTML = `URL quét LAN: <b>${baseUrl}</b>. Đảm bảo điện thoại cùng mạng Wi-Fi hoặc mạng LAN với máy tính.`;
+      }
+
+      const qrBox = document.getElementById('inviteQrBox');
+      qrBox.innerHTML = '';
+      try {
+        _qrInstance = new QRCode(qrBox, {
+          text: joinUrl,
+          width: 190,
+          height: 190,
+          colorDark: '#0b0f19',
+          colorLight: '#ffffff',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } catch (err) {
+        console.error('QRCode render error:', err);
+        qrBox.innerHTML = '<div style="color:var(--red);font-size:.8rem;padding:20px;">Lỗi tạo mã QR</div>';
+      }
+
+      openModal('modalInvite');
+    }
+
+    function closeInviteModal() {
+      closeModal('modalInvite');
+    }
+
+    function copyInviteRoomCode(btn) {
+      copyText(roomCode, btn);
+      T.ok('Đã sao chép mã phòng', roomCode);
+    }
+
+    function copyInviteUrl(btn) {
+      const input = document.getElementById('inviteUrlInput');
+      copyText(input.value, btn);
+      T.ok('Đã sao chép liên kết mời!', 'Bạn có thể gửi liên kết này cho người tham gia.');
+    }
+
+    function downloadInviteQr() {
+      const container = document.getElementById('inviteQrBox');
+      const canvas = container.querySelector('canvas');
+      let dataUrl = '';
+
+      if (canvas) {
+        const pad = 16;
+        const padCanvas = document.createElement('canvas');
+        padCanvas.width = canvas.width + pad * 2;
+        padCanvas.height = canvas.height + pad * 2;
+        const ctx = padCanvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, padCanvas.width, padCanvas.height);
+        ctx.drawImage(canvas, pad, pad);
+        dataUrl = padCanvas.toDataURL('image/png');
+      } else {
+        const img = container.querySelector('img');
+        if (img && img.src) dataUrl = img.src;
+      }
+
+      if (!dataUrl) {
+        T.err('Lỗi tải', 'Không tìm thấy hình ảnh mã QR');
+        return;
+      }
+
+      const a = document.createElement('a');
+      a.download = `LinguaMeet_QR_${roomCode}.png`;
+      a.href = dataUrl;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      T.ok('Đã tải ảnh QR', `Lưu tệp LinguaMeet_QR_${roomCode}.png`);
+    }
+  </script>
+</body>
+
+</html>

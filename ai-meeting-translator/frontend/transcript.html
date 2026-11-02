@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>Phụ đề trực tiếp — LinguaMeet</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🌐</div>
+                <div>
+                    <div class="brand-name">LinguaMeet</div>
+                    <div class="brand-sub">AI Translator</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Menu</div>
+                <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Tổng quan</a>
+                <div class="nav-section-label" style="margin-top:8px;">Công cụ</div>
+                <a class="nav-item" href="lobby.html"><span class="nav-icon">🚪</span> Phòng chờ</a>
+                <a class="nav-item active" href="transcript.html"><span class="nav-icon">📝</span> Phụ đề trực tiếp</a>
+                <a class="nav-item" href="summary.html"><span class="nav-icon">🤖</span> Biên bản AI</a>
+                <a class="nav-item" href="participants.html"><span class="nav-icon">👥</span> Thành viên</a>
+                <a class="nav-item" href="languages.html"><span class="nav-icon">🌐</span> Ngôn ngữ</a>
+                <div class="nav-section-label" style="margin-top:8px;">Hệ thống</div>
+                <a class="nav-item" href="help.html"><span class="nav-icon">❓</span> Hỗ trợ</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="avatar avatar-sm" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUserName">—</div>
+                    <div class="user-email" id="sidebarUserEmail">—</div>
+                </div>
+                <a href="index.html" class="btn-icon" style="margin-left:auto;">🏠</a>
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <header class="topbar">
+                <button class="btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"
+                    style="display:none;" id="btnSidebarToggle">☰</button>
+                <div style="flex:1;">
+                    <span style="font-size:.85rem;color:var(--gray-500);">LinguaMeet /</span>
+                    <span style="font-size:.85rem;font-weight:600;"> Phụ đề trực tiếp</span>
+                </div>
+                <div class="topbar-actions">
+                    <span id="liveStatus" class="live-indicator" style="display:none;">
+                        <span class="live-dot"></span> LIVE
+                    </span>
+                    <div class="avatar avatar-sm" id="topbarAvatar">?</div>
+                </div>
+            </header>
+
+            <div class="page-body"
+                style="height:calc(100vh - 60px);overflow:hidden;padding:16px;display:flex;flex-direction:column;gap:12px;">
+
+                <!-- Toolbar -->
+                <div class="transcript-toolbar">
+                    <div class="form-group" style="flex-direction:row;align-items:center;gap:8px;margin:0;">
+                        <label style="font-size:.78rem;color:var(--gray-600);white-space:nowrap;">Mã phòng</label>
+                        <input id="tsRoomCode" type="text" class="form-control"
+                            style="width:120px;font-family:monospace;text-transform:uppercase;" placeholder="ABC123"
+                            oninput="this.value=this.value.toUpperCase()" />
+                    </div>
+                    <div class="form-group" style="flex-direction:row;align-items:center;gap:8px;margin:0;">
+                        <label style="font-size:.78rem;color:var(--gray-600);white-space:nowrap;">User ID</label>
+                        <input id="tsUserId" type="number" class="form-control" style="width:80px;" placeholder="1" />
+                    </div>
+                    <button class="btn btn-primary btn-sm" id="btnTsConnect" onclick="tsConnect()">🔗 Kết nối</button>
+                    <button class="btn btn-danger btn-sm hidden" id="btnTsDisconnect" onclick="tsDisconnect()">✕
+                        Ngắt</button>
+                    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+                        <select id="tsFilterLang" class="form-control" style="width:140px;font-size:.8rem;"
+                            onchange="renderFeed()">
+                            <option value="">Tất cả ngôn ngữ</option>
+                        </select>
+                        <button class="btn btn-ghost btn-sm" onclick="clearFeed()">🗑 Xóa</button>
+                        <button class="btn btn-ghost btn-sm" onclick="exportFeed()">⬇ Xuất</button>
+                        <label style="display:flex;align-items:center;gap:5px;font-size:.78rem;cursor:pointer;">
+                            <span class="toggle-switch on" id="toggleAutoScroll"
+                                onclick="this.classList.toggle('on')"></span>
+                            Tự cuộn
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Filter pills -->
+                <div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;" id="langPills"></div>
+
+                <!-- Stream -->
+                <div class="transcript-stream" id="transcriptStream">
+                    <div style="text-align:center;padding:40px;color:var(--gray-400);">
+                        <div style="font-size:2.5rem;margin-bottom:10px;">📝</div>
+                        <div style="font-size:.9rem;font-weight:500;">Kết nối phòng họp để xem phụ đề</div>
+                        <div style="font-size:.8rem;margin-top:6px;">Nhập mã phòng và User ID rồi nhấn Kết nối</div>
+                    </div>
+                </div>
+
+                <!-- Subtitle bar (live) -->
+                <div id="subtitleBar"
+                    style="display:none;background:#1a1a2a;border-radius:var(--radius-lg);padding:14px 20px;text-align:center;flex-shrink:0;">
+                    <div style="font-size:.72rem;color:rgba(255,255,255,.4);margin-bottom:4px;" id="subBarSpeaker">
+                    </div>
+                    <div style="font-size:.82rem;color:rgba(255,255,255,.55);font-style:italic;margin-bottom:4px;"
+                        id="subBarOrig"></div>
+                    <div style="font-size:1.1rem;font-weight:600;color:#fff;" id="subBarTrans"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let tsWs = null;
+        let tsMessages = []; // {id, userId, original, translated, srcLang, tgtLang, time}
+        let tsLangs = new Set();
+        let subTimer = null;
+
+        async function initTranscript() {
+            const user = Session.load();
+            if (user) {
+                const init = (user.full_name || 'U').charAt(0).toUpperCase();
+                ['sidebarAvatar', 'topbarAvatar'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = init; });
+                document.getElementById('sidebarUserName').textContent = user.full_name || '';
+                document.getElementById('sidebarUserEmail').textContent = user.email || '';
+                document.getElementById('tsUserId').value = user.id || '';
+            }
+
+            const p = new URLSearchParams(window.location.search);
+            if (p.get('room')) document.getElementById('tsRoomCode').value = p.get('room').toUpperCase();
+
+            // Load lang filter
+            try {
+                const res = await fetch(API + '/api/languages');
+                if (res.ok) {
+                    const langs = await res.json();
+                    const sel = document.getElementById('tsFilterLang');
+                    langs.forEach(l => {
+                        const o = document.createElement('option');
+                        o.value = l.code; o.textContent = `${l.flag || ''} ${l.name}`;
+                        sel.appendChild(o);
+                    });
+                }
+            } catch (_) { }
+
+            handleResize();
+            window.addEventListener('resize', handleResize);
+        }
+
+        function tsConnect() {
+            const code = document.getElementById('tsRoomCode').value.trim().toUpperCase();
+            const userId = parseInt(document.getElementById('tsUserId').value);
+            if (!code || !userId) { Toast.error('Thiếu thông tin', 'Nhập mã phòng và User ID'); return; }
+
+            if (tsWs) tsWs.close();
+
+            const WS_BASE = 'ws://127.0.0.1:8000';
+            tsWs = new WebSocket(`${WS_BASE}/ws/rooms/${code}/${userId}`);
+            tsWs.binaryType = 'arraybuffer';
+
+            tsWs.onopen = () => {
+                document.getElementById('liveStatus').style.display = 'inline-flex';
+                document.getElementById('btnTsConnect').classList.add('hidden');
+                document.getElementById('btnTsDisconnect').classList.remove('hidden');
+                Toast.success('Đã kết nối', `Phòng ${code}`);
+            };
+
+            tsWs.onmessage = (e) => {
+                if (e.data instanceof ArrayBuffer) return; // bỏ qua binary
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.type === 'transcript') onTsTranscript(d);
+                    if (d.type === 'translation') onTsTranslation(d);
+                    if (d.type === 'error') Toast.error('Lỗi WS', d.message);
+                } catch (_) { }
+            };
+
+            tsWs.onclose = () => {
+                document.getElementById('liveStatus').style.display = 'none';
+                document.getElementById('btnTsConnect').classList.remove('hidden');
+                document.getElementById('btnTsDisconnect').classList.add('hidden');
+            };
+        }
+
+        function tsDisconnect() { if (tsWs) { tsWs.close(); tsWs = null; } }
+
+        function onTsTranscript(d) {
+            const entry = {
+                id: d.message_id || Date.now() + '', userId: d.user_id,
+                original: d.text, translated: null,
+                srcLang: d.source_language || d.speaking_language || '',
+                tgtLang: null, time: new Date()
+            };
+            tsMessages.push(entry);
+            tsLangs.add(entry.srcLang);
+            renderFeed();
+            showSubBar(entry);
+        }
+
+        function onTsTranslation(d) {
+            const entry = tsMessages.find(m => m.id === d.message_id);
+            if (entry) { entry.translated = d.translated_text; entry.tgtLang = d.target_language; }
+            else {
+                tsMessages.push({
+                    id: d.message_id || Date.now() + '', userId: d.user_id,
+                    original: d.original_text, translated: d.translated_text,
+                    srcLang: d.source_language, tgtLang: d.target_language, time: new Date()
+                });
+            }
+            if (d.source_language) tsLangs.add(d.source_language);
+            renderFeed();
+            if (entry) showSubBar(entry);
+        }
+
+        function renderFeed() {
+            const filterLang = document.getElementById('tsFilterLang').value;
+            const filtered = filterLang
+                ? tsMessages.filter(m => m.srcLang === filterLang || m.tgtLang === filterLang)
+                : tsMessages;
+
+            const user = Session.load();
+            const myId = user ? user.id : -1;
+            const stream = document.getElementById('transcriptStream');
+
+            if (filtered.length === 0) {
+                stream.innerHTML = `<div style="text-align:center;padding:40px;color:var(--gray-400);"><div style="font-size:2.5rem;margin-bottom:10px;">📝</div><div>Chưa có nội dung</div></div>`;
+                return;
+            }
+
+            stream.innerHTML = filtered.map(m => `
+      <div class="ts-entry${m.userId === myId ? ' ts-me' : ''}">
+        <div class="ts-avatar">${String(m.userId).charAt(0)}</div>
+        <div class="ts-content">
+          <div class="ts-meta">
+            <span class="ts-name">${m.userId === myId ? 'Bạn' : `User ${m.userId}`}</span>
+            <span class="ts-lang-tag">${m.srcLang}</span>
+            <span class="ts-time">${m.time.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+          </div>
+          <div class="ts-original">${esc(m.original)}</div>
+          ${m.translated ? `<div class="ts-translated">${esc(m.translated)}</div>` : `<div style="font-size:.75rem;color:var(--gray-400);margin-top:4px;font-style:italic;">Đang dịch...</div>`}
+        </div>
+      </div>
+    `).join('');
+
+            const autoScroll = document.getElementById('toggleAutoScroll').classList.contains('on');
+            if (autoScroll) stream.scrollTop = stream.scrollHeight;
+        }
+
+        function showSubBar(entry) {
+            const bar = document.getElementById('subtitleBar');
+            bar.style.display = 'block';
+            document.getElementById('subBarSpeaker').textContent = `User ${entry.userId} · ${entry.srcLang}`;
+            document.getElementById('subBarOrig').textContent = entry.original;
+            document.getElementById('subBarTrans').textContent = entry.translated || '...';
+            clearTimeout(subTimer);
+            subTimer = setTimeout(() => { bar.style.display = 'none'; }, 7000);
+        }
+
+        function clearFeed() { tsMessages = []; tsLangs.clear(); renderFeed(); }
+
+        function exportFeed() {
+            if (tsMessages.length === 0) { Toast.warning('Trống', 'Không có gì để xuất'); return; }
+            const lines = tsMessages.map(m =>
+                `[${m.time.toLocaleTimeString()}] User ${m.userId} (${m.srcLang}): ${m.original}` +
+                (m.translated ? `\n  → [${m.tgtLang}]: ${m.translated}` : '')
+            ).join('\n\n');
+            const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `transcript_${new Date().toISOString().slice(0, 10)}.txt`;
+            a.click();
+            Toast.success('Đã xuất file', 'transcript.txt');
+        }
+
+        function handleResize() {
+            const btn = document.getElementById('btnSidebarToggle');
+            if (btn) btn.style.display = window.innerWidth < 768 ? 'flex' : 'none';
+        }
+
+        initTranscript();
+    </script>
+</body>
+
+</html>

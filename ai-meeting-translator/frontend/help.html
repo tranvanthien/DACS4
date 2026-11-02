@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>Trung tâm hỗ trợ — LinguaMeet</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🌐</div>
+                <div>
+                    <div class="brand-name">LinguaMeet</div>
+                    <div class="brand-sub">AI Translator</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Menu</div>
+                <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Tổng quan</a>
+                <div class="nav-section-label" style="margin-top:8px;">Công cụ</div>
+                <a class="nav-item" href="lobby.html"><span class="nav-icon">🚪</span> Phòng chờ</a>
+                <a class="nav-item" href="transcript.html"><span class="nav-icon">📝</span> Phụ đề trực tiếp</a>
+                <a class="nav-item" href="summary.html"><span class="nav-icon">🤖</span> Biên bản AI</a>
+                <a class="nav-item" href="participants.html"><span class="nav-icon">👥</span> Thành viên</a>
+                <a class="nav-item" href="languages.html"><span class="nav-icon">🌐</span> Ngôn ngữ</a>
+                <div class="nav-section-label" style="margin-top:8px;">Hệ thống</div>
+                <a class="nav-item active" href="help.html"><span class="nav-icon">❓</span> Hỗ trợ</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="avatar avatar-sm" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUserName">—</div>
+                    <div class="user-email" id="sidebarUserEmail">—</div>
+                </div>
+                <a href="index.html" class="btn-icon" style="margin-left:auto;">🏠</a>
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <header class="topbar">
+                <button class="btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"
+                    style="display:none;" id="btnSidebarToggle">☰</button>
+                <div style="flex:1;">
+                    <span style="font-size:.85rem;color:var(--gray-500);">LinguaMeet /</span>
+                    <span style="font-size:.85rem;font-weight:600;"> Trung tâm hỗ trợ</span>
+                </div>
+            </header>
+
+            <div class="page-body">
+
+                <!-- Search -->
+                <div class="help-search">
+                    <h3>Chúng tôi có thể giúp gì cho bạn? 👋</h3>
+                    <p>Tìm kiếm câu hỏi hoặc chọn chủ đề bên dưới</p>
+                    <div class="help-search-bar">
+                        <span>🔍</span>
+                        <input id="helpSearch" type="text" placeholder="VD: cách bật mic, lỗi kết nối..."
+                            oninput="filterFAQ()" />
+                    </div>
+                </div>
+
+                <!-- Categories -->
+                <div>
+                    <div class="section-header"><span class="section-title">Chủ đề hỗ trợ</span></div>
+                    <div class="help-categories">
+                        <div class="help-cat-card" onclick="scrollToSection('faq-start')">
+                            <div class="help-cat-icon">🚀</div>
+                            <div class="help-cat-name">Bắt đầu</div>
+                            <div class="help-cat-count">5 bài viết</div>
+                        </div>
+                        <div class="help-cat-card" onclick="scrollToSection('faq-webrtc')">
+                            <div class="help-cat-icon">📹</div>
+                            <div class="help-cat-name">Cuộc gọi WebRTC</div>
+                            <div class="help-cat-count">4 bài viết</div>
+                        </div>
+                        <div class="help-cat-card" onclick="scrollToSection('faq-stt')">
+                            <div class="help-cat-icon">🎤</div>
+                            <div class="help-cat-name">Nhận diện giọng nói</div>
+                            <div class="help-cat-count">4 bài viết</div>
+                        </div>
+                        <div class="help-cat-card" onclick="scrollToSection('faq-translate')">
+                            <div class="help-cat-icon">🌍</div>
+                            <div class="help-cat-name">Dịch thuật</div>
+                            <div class="help-cat-count">3 bài viết</div>
+                        </div>
+                        <div class="help-cat-card" onclick="scrollToSection('faq-tts')">
+                            <div class="help-cat-icon">🔊</div>
+                            <div class="help-cat-name">Giọng đọc AI</div>
+                            <div class="help-cat-count">3 bài viết</div>
+                        </div>
+                        <div class="help-cat-card" onclick="scrollToSection('faq-trouble')">
+                            <div class="help-cat-icon">🔧</div>
+                            <div class="help-cat-name">Xử lý sự cố</div>
+                            <div class="help-cat-count">5 bài viết</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Start -->
+                <div class="card" style="padding:20px 24px;">
+                    <h4 style="margin-bottom:16px;">⚡ Hướng dẫn nhanh</h4>
+                    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;">
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <div
+                                style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;">
+                                1</div>
+                            <div>
+                                <div style="font-size:.85rem;font-weight:600;">Đăng ký tài khoản</div>
+                                <div style="font-size:.78rem;color:var(--gray-500);">Tạo tài khoản miễn phí tại trang
+                                    chủ</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <div
+                                style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;">
+                                2</div>
+                            <div>
+                                <div style="font-size:.85rem;font-weight:600;">Tạo hoặc tham gia phòng</div>
+                                <div style="font-size:.78rem;color:var(--gray-500);">Nhấn "Tạo cuộc họp" hoặc nhập mã
+                                    phòng</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <div
+                                style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;">
+                                3</div>
+                            <div>
+                                <div style="font-size:.85rem;font-weight:600;">Chọn ngôn ngữ</div>
+                                <div style="font-size:.78rem;color:var(--gray-500);">Chọn ngôn ngữ nói và ngôn ngữ muốn
+                                    nghe</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <div
+                                style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;">
+                                4</div>
+                            <div>
+                                <div style="font-size:.85rem;font-weight:600;">Tham gia cuộc gọi</div>
+                                <div style="font-size:.78rem;color:var(--gray-500);">Nhấn "Tham gia cuộc gọi" và cho
+                                    phép mic</div>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;align-items:flex-start;">
+                            <div
+                                style="width:28px;height:28px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;flex-shrink:0;">
+                                5</div>
+                            <div>
+                                <div style="font-size:.85rem;font-weight:600;">Nói chuyện</div>
+                                <div style="font-size:.78rem;color:var(--gray-500);">AI tự động nhận diện, dịch và phát
+                                    giọng đọc</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FAQ Sections -->
+                <div id="faqContainer">
+
+                    <div class="section-header" id="faq-start"><span class="section-title">🚀 Bắt đầu sử dụng</span>
+                    </div>
+                    <div id="faq-start-items">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Làm sao để tạo tài khoản? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Vào trang chủ, chọn tab "Đăng ký", điền họ tên, email, mật khẩu và
+                                chọn ngôn ngữ nói/nghe. Nhấn "Tạo tài khoản" là xong.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Cách tạo phòng họp? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Sau khi đăng nhập, nhấn nút "Tạo cuộc họp" trên dashboard, nhập tên
+                                phòng và chọn ngôn ngữ. Một mã phòng 6 ký tự sẽ được tạo tự động — chia sẻ mã này để mời
+                                người khác.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Cách tham gia phòng của người khác?
+                                <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Nhấn "Tham gia bằng mã" hoặc vào trang Phòng chờ, nhập mã phòng 6 ký
+                                tự do người tổ chức cung cấp, chọn ngôn ngữ rồi nhấn "Vào phòng họp".</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Cần cài thêm phần mềm gì không? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Không cần cài thêm gì. Chỉ cần trình duyệt web hiện đại hỗ trợ
+                                WebRTC (Chrome, Edge, Firefox) và microphone.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Ứng dụng hoạt động trên điện thoại
+                                không? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Giao diện responsive, có thể dùng trên điện thoại qua trình duyệt
+                                Chrome/Safari. Tuy nhiên để trải nghiệm tốt nhất, khuyến nghị dùng máy tính.</div>
+                        </div>
+                    </div>
+
+                    <div class="section-header" style="margin-top:8px;" id="faq-webrtc"><span class="section-title">📹
+                            Cuộc gọi WebRTC</span></div>
+                    <div id="faq-webrtc-items">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Tại sao không nghe được tiếng của người
+                                kia? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Kiểm tra: (1) Trình duyệt đã cấp quyền micro chưa? (2) Người kia đã
+                                nhấn "Tham gia cuộc gọi" chưa? (3) Nhấn vào trang web để cho phép tự động phát âm thanh.
+                                (4) Kiểm tra loa/tai nghe.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">WebRTC báo "Kết nối thất bại" là sao?
+                                <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Thường do tường lửa hoặc NAT chặn kết nối P2P. Thử: kết nối cùng
+                                mạng WiFi, hoặc liên hệ admin để cấu hình TURN server trong file .env.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Bao nhiêu người có thể tham gia một
+                                phòng? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Về mặt kỹ thuật không giới hạn, nhưng WebRTC mesh kết nối P2P nên
+                                khuyến nghị tối đa 4-6 người. Với số lượng lớn hơn cần cấu hình SFU/MCU.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Có hỗ trợ video không? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Phiên bản hiện tại chỉ hỗ trợ âm thanh (audio-only WebRTC). Video
+                                đang trong kế hoạch phát triển.</div>
+                        </div>
+                    </div>
+
+                    <div class="section-header" style="margin-top:8px;" id="faq-stt"><span class="section-title">🎤 Nhận
+                            diện giọng nói (STT)</span></div>
+                    <div id="faq-stt-items">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">STT không nhận diện được giọng tôi?
+                                <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Đảm bảo: (1) Chọn đúng ngôn ngữ nói, (2) Nói rõ ràng, không có tiếng
+                                ồn nền, (3) Micro hoạt động tốt, (4) Mỗi đoạn nói trên 500ms. STT dùng Whisper AI — hoạt
+                                động tốt nhất với giọng nói rõ ràng.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Tại sao phải chờ lâu trước khi thấy
+                                text? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Whisper xử lý toàn bộ đoạn âm thanh sau khi bạn dừng nói (VAD). Độ
+                                trễ 1-5s là bình thường với model small/CPU. Nếu có GPU hoặc model tiny sẽ nhanh hơn.
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Tin nhắn bị từ chối với lý do
+                                "AUDIO_TOO_SHORT"? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Nói ít nhất 500ms (khoảng nửa giây). Các tiếng ồn ngắn hoặc ho nhẹ
+                                sẽ bị lọc tự động.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">AutoSTT là gì? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">AutoSTT tự động phát hiện khi bạn bắt đầu và dừng nói dựa trên năng
+                                lượng âm thanh (VAD). Bạn không cần nhấn nút — chỉ cần nói bình thường.</div>
+                        </div>
+                    </div>
+
+                    <div class="section-header" style="margin-top:8px;" id="faq-translate"><span
+                            class="section-title">🌍 Dịch thuật</span></div>
+                    <div id="faq-translate-items">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Dịch thuật dùng service nào? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Mặc định dùng Google Translate unofficial API (miễn phí, không cần
+                                API key). Có thể cấu hình sang NLLB (offline), MarianMT, hoặc Google Translate chính
+                                thức trong file .env.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Dịch không chính xác phải làm gì? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Chất lượng dịch phụ thuộc vào STT. Nếu STT nhận diện sai, bản dịch
+                                cũng sai. Thử nói chậm và rõ hơn. Có thể nâng cấp sang NLLB-1.3B để dịch chính xác hơn.
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Bản dịch hiển thị ở đâu? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Bản dịch hiển thị trong tab "Bản dịch" ở panel phải của phòng họp,
+                                đồng thời xuất hiện như phụ đề ở dưới màn hình video. Trang "Phụ đề trực tiếp" cũng hiển
+                                thị realtime.</div>
+                        </div>
+                    </div>
+
+                    <div class="section-header" style="margin-top:8px;" id="faq-tts"><span class="section-title">🔊
+                            Giọng đọc AI (TTS)</span></div>
+                    <div id="faq-tts-items">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Không nghe được giọng đọc TTS? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Trình duyệt chặn tự động phát âm thanh. Nhấn vào bất kỳ đâu trong
+                                trang họp để "unlock" audio. Banner vàng sẽ xuất hiện nếu bị chặn — nhấn "Bật âm thanh".
+                            </div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Tắt TTS được không? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Được. Trong tab "Bản dịch" của phòng họp, có toggle "Giọng đọc AI
+                                (TTS)" — tắt đi nếu bạn chỉ muốn đọc text mà không nghe giọng đọc.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Giọng đọc nào tốt hơn, gTTS hay Edge
+                                TTS? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Edge TTS (Microsoft) cho chất lượng giọng tự nhiên hơn và hỗ trợ
+                                nhiều accent. gTTS đơn giản hơn và không cần cài thêm. Cấu hình qua TTS_PROVIDER trong
+                                .env.</div>
+                        </div>
+                    </div>
+
+                    <div class="section-header" style="margin-top:8px;" id="faq-trouble"><span class="section-title">🔧
+                            Xử lý sự cố</span></div>
+                    <div id="faq-trouble-items">
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Trang báo "Not Found" hoặc "Connection
+                                Refused"? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Backend server chưa chạy. Mở terminal trong thư mục backend, chạy:
+                                venv\Scripts\python.exe -m uvicorn app.main:app --reload</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Lỗi "User not found" khi vào phòng?
+                                <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">User ID không tồn tại trong database. Đăng ký lại tài khoản hoặc
+                                đăng nhập qua trang chủ — hệ thống sẽ tự lưu user session.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">WebSocket báo "Room is closed"? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Host đã đóng phòng. Yêu cầu host tạo phòng mới hoặc tạo phòng mới từ
+                                dashboard của bạn.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Đã tham gia nhưng không thấy trong danh
+                                sách? <span class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Thử tải lại trang hoặc nhấn "Làm mới" trong trang Thành viên. Kết
+                                nối WebSocket real-time cần 1-2 giây để đồng bộ.</div>
+                        </div>
+                        <div class="faq-item">
+                            <div class="faq-question" onclick="toggleFAQ(this)">Cần hỗ trợ thêm? <span
+                                    class="faq-arrow">▾</span></div>
+                            <div class="faq-answer">Xem log lỗi trong Console (F12) và gửi về nhóm phát triển. Hầu hết
+                                lỗi đều hiển thị rõ ràng trong log backend terminal.</div>
+                        </div>
+                    </div>
+
+                </div><!-- /faqContainer -->
+
+                <!-- System status -->
+                <div class="card">
+                    <div class="card-header">
+                        <h4>⚡ Trạng thái hệ thống</h4><button class="btn btn-ghost btn-sm" onclick="checkStatus()">🔄
+                            Kiểm tra</button>
+                    </div>
+                    <div class="card-body"
+                        style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;"
+                        id="statusGrid">
+                        <div class="device-check-row"><span class="device-label">🌐 Backend API</span><span
+                                class="device-status checking" id="statusAPI">Đang kiểm tra...</span></div>
+                        <div class="device-check-row"><span class="device-label">🗄 Database</span><span
+                                class="device-status checking" id="statusDB">Đang kiểm tra...</span></div>
+                        <div class="device-check-row"><span class="device-label">🔊 WebSocket</span><span
+                                class="device-status checking" id="statusWS">Đang kiểm tra...</span></div>
+                        <div class="device-check-row"><span class="device-label">🌍 Dịch thuật</span><span
+                                class="device-status checking" id="statusTranslate">Đang kiểm tra...</span></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        function initHelp() {
+            const user = Session.load();
+            if (user) {
+                const init = (user.full_name || 'U').charAt(0).toUpperCase();
+                document.getElementById('sidebarAvatar').textContent = init;
+                document.getElementById('sidebarUserName').textContent = user.full_name || '';
+                document.getElementById('sidebarUserEmail').textContent = user.email || '';
+            }
+            checkStatus();
+            handleResize();
+            window.addEventListener('resize', handleResize);
+        }
+
+        function toggleFAQ(el) {
+            const item = el.closest('.faq-item');
+            const isOpen = item.classList.contains('open');
+            // Close all
+            document.querySelectorAll('.faq-item.open').forEach(i => i.classList.remove('open'));
+            if (!isOpen) item.classList.add('open');
+        }
+
+        function filterFAQ() {
+            const q = document.getElementById('helpSearch').value.toLowerCase();
+            document.querySelectorAll('.faq-item').forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = (!q || text.includes(q)) ? 'block' : 'none';
+            });
+        }
+
+        function scrollToSection(id) {
+            const el = document.getElementById(id);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function checkStatus() {
+            const set = (id, ok, label) => {
+                const el = document.getElementById(id);
+                el.textContent = label;
+                el.className = `device-status ${ok ? 'ok' : 'error'}`;
+            };
+
+            // API
+            try {
+                const res = await fetch(API + '/api/health', { signal: AbortSignal.timeout(3000) });
+                const data = await res.json();
+                set('statusAPI', true, 'Hoạt động');
+                set('statusDB', true, 'Kết nối tốt');
+            } catch (_) {
+                set('statusAPI', false, 'Không kết nối được');
+                set('statusDB', false, 'Chưa xác định');
+            }
+
+            // Languages (proxy check for translate)
+            try {
+                const res = await fetch(API + '/api/languages', { signal: AbortSignal.timeout(3000) });
+                set('statusTranslate', res.ok, res.ok ? 'Sẵn sàng' : 'Lỗi');
+            } catch (_) {
+                set('statusTranslate', false, 'Lỗi');
+            }
+
+            // WS test
+            try {
+                const ws = new WebSocket('ws://127.0.0.1:8000/ws/rooms/TESTPING/0');
+                const timeout = setTimeout(() => { ws.close(); set('statusWS', false, 'Timeout'); }, 2000);
+                ws.onopen = () => { clearTimeout(timeout); ws.close(); set('statusWS', true, 'Hoạt động'); };
+                ws.onerror = () => { clearTimeout(timeout); set('statusWS', false, 'Lỗi kết nối'); };
+            } catch (_) {
+                set('statusWS', false, 'Không hỗ trợ');
+            }
+        }
+
+        function handleResize() {
+            const btn = document.getElementById('btnSidebarToggle');
+            if (btn) btn.style.display = window.innerWidth < 768 ? 'flex' : 'none';
+        }
+
+        initHelp();
+    </script>
+</body>
+
+</html>

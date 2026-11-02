@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Quản lý ngôn ngữ — Admin LinguaMeet</title>
+    <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <div class="admin-main">
+            <header class="admin-topbar" id="adminTopbar"></header>
+            <div class="admin-content">
+
+                <div class="page-hd">
+                    <div>
+                        <h2>🌐 Quản lý Ngôn ngữ AI</h2>
+                        <p style="font-size:.8rem;color:var(--g500);margin-top:3px;">
+                            Danh mục ngôn ngữ được hỗ trợ dịch thuật song phương và tổng hợp giọng nói trong phòng họp
+                        </p>
+                    </div>
+                    <div class="phd-actions">
+                        <span id="langCount" style="font-size:.8rem;color:var(--g500);align-self:center;"></span>
+                        <button class="btn btn-primary btn-sm" onclick="loadLanguages()">🔄 Làm mới</button>
+                    </div>
+                </div>
+
+                <!-- Stats KPI -->
+                <div class="stats-row" style="margin-bottom:18px;" id="langStats">
+                    <div class="stat-card">
+                        <div class="stat-icon orange">🌐</div>
+                        <div>
+                            <div class="stat-val" id="stTotal">—</div>
+                            <div class="stat-lbl">Tổng ngôn ngữ chuẩn</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">🎙️</div>
+                        <div>
+                            <div class="stat-val" id="stWhisper">8/8</div>
+                            <div class="stat-lbl">Hỗ trợ Whisper STT</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue">⚡</div>
+                        <div>
+                            <div class="stat-val" id="stTrans">8/8</div>
+                            <div class="stat-lbl">Dịch thuật trực tiếp</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Language Cards Grid -->
+                <div class="card">
+                    <div class="card-head">
+                        <h3>📋 Danh mục Ngôn ngữ Hỗ trợ</h3>
+                        <div class="search-box" style="max-width:240px;">
+                            <span>🔍</span>
+                            <input id="searchLang" type="text" placeholder="Tìm tên, mã ngôn ngữ..." oninput="filterLangs()" />
+                        </div>
+                    </div>
+                    <div style="padding:18px;">
+                        <div id="langGrid" class="lang-grid">
+                            <div style="text-align:center;padding:32px;grid-column:1/-1;"><span class="spin"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Usage Statistics Table -->
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-head">
+                        <h3>📊 Thống kê Tần suất Sử dụng của Người dùng Thực tế</h3>
+                        <span style="font-size:.75rem;color:var(--g500);">Dữ liệu tổng hợp từ cơ sở dữ liệu MySQL</span>
+                    </div>
+                    <div id="usageBody" style="padding:0;">
+                        <div style="padding:20px;text-align:center;"><span class="spin"></span> Đang tính toán...</div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        let allLanguages = [], filtered = [];
+
+        async function initLanguages() {
+            if (!A.require()) return;
+            renderSidebar('languages.html');
+            renderTopbar('Quản lý Ngôn ngữ AI');
+            await loadLanguages();
+        }
+
+        async function loadLanguages() {
+            document.getElementById('langGrid').innerHTML = '<div style="text-align:center;padding:32px;grid-column:1/-1;"><span class="spin"></span> Đang tải dữ liệu...</div>';
+            try {
+                // Gọi API Admin Languages thật
+                const res = await apiGet('/api/admin/languages');
+                allLanguages = res.languages || [];
+                document.getElementById('stTotal').textContent = allLanguages.length;
+                document.getElementById('langCount').textContent = `${allLanguages.length} ngôn ngữ hoạt động`;
+                filtered = [...allLanguages];
+                renderGrid();
+                renderUsageTable();
+            } catch (e) {
+                document.getElementById('langGrid').innerHTML = `<div style="grid-column:1/-1;color:var(--err);padding:20px;text-align:center;">⚠ ${xe(e.message)}</div>`;
+                T.err('Lỗi tải ngôn ngữ', e.message);
+            }
+        }
+
+        function filterLangs() {
+            const q = document.getElementById('searchLang').value.toLowerCase().trim();
+            filtered = allLanguages.filter(l => !q || l.name.toLowerCase().includes(q) || l.code.toLowerCase().includes(q));
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const el = document.getElementById('langGrid');
+            if (!filtered.length) {
+                el.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--g400);">Không tìm thấy ngôn ngữ phù hợp</div>';
+                return;
+            }
+            el.innerHTML = filtered.map(l => `
+                <div class="lang-card">
+                    <div class="lang-flag">${l.flag || '🌐'}</div>
+                    <div class="lang-info">
+                        <div class="lang-name">${xe(l.name)}</div>
+                        <span class="lang-code">${xe(l.code)}</span>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end;">
+                        <span class="badge badge-ok" style="font-size:.65rem;"><span class="dot dot-ok" style="width:5px;height:5px;"></span> STT & TTS</span>
+                        <span style="font-size:.68rem;color:var(--g500);">${l.total_users_count} người dùng</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function renderUsageTable() {
+            const el = document.getElementById('usageBody');
+            const sorted = [...allLanguages].sort((a, b) => b.total_users_count - a.total_users_count);
+            const maxTotal = Math.max(...sorted.map(r => r.total_users_count), 1);
+
+            el.innerHTML = `
+                <div style="overflow-x:auto;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ngôn ngữ</th>
+                                <th>Mã chuẩn</th>
+                                <th>Số người chọn Nói</th>
+                                <th>Số người chọn Nghe</th>
+                                <th>Tổng lượt dùng</th>
+                                <th>Tỷ trọng sử dụng</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${sorted.map(r => `
+                                <tr>
+                                    <td>
+                                        <span style="font-size:1.1rem;margin-right:6px;">${r.flag}</span>
+                                        <b>${xe(r.name)}</b>
+                                    </td>
+                                    <td><span class="cell-mono">${xe(r.code)}</span></td>
+                                    <td>
+                                        ${r.speaking_users_count > 0 
+                                            ? `<span class="badge badge-primary">${r.speaking_users_count}</span>` 
+                                            : '<span style="color:var(--g400);">0</span>'}
+                                    </td>
+                                    <td>
+                                        ${r.listening_users_count > 0 
+                                            ? `<span class="badge badge-blue">${r.listening_users_count}</span>` 
+                                            : '<span style="color:var(--g400);">0</span>'}
+                                    </td>
+                                    <td><b>${r.total_users_count}</b></td>
+                                    <td>
+                                        <div style="display:flex;align-items:center;gap:8px;min-width:120px;">
+                                            <div style="flex:1;background:var(--g100);border-radius:var(--rf);height:6px;">
+                                                <div style="width:${Math.round(r.total_users_count / maxTotal * 100)}%;background:var(--grad);height:6px;border-radius:var(--rf);transition:.4s;"></div>
+                                            </div>
+                                            <span style="font-size:.7rem;color:var(--g500);width:32px;">${Math.round(r.total_users_count / maxTotal * 100)}%</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        initLanguages();
+    </script>
+</body>
+
+</html>

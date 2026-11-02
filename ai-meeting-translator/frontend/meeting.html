@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>AI Meeting Translator — Phòng họp</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+    <!-- ══════════════════════════════════════════════════════
+     MEETING LAYOUT
+     ══════════════════════════════════════════════════════ -->
+    <div class="meeting-layout" id="meetingLayout">
+
+        <!-- ── Topbar ──────────────────────────────────────────── -->
+        <header class="meeting-topbar">
+            <div class="room-info">
+                <span class="room-logo">🌐</span>
+                <span class="room-name-badge" id="roomNameDisplay">Phòng họp</span>
+                <span class="room-code-chip" id="btnCopyCode" onclick="copyRoomCode()"
+                    title="Nhấn để sao chép mã phòng">
+                    📋 <span id="roomCodeDisplay">—</span>
+                </span>
+            </div>
+
+            <div class="top-status">
+                <span id="connStatusPill" class="top-conn-pill connecting">🟡 Đang kết nối...</span>
+                <span id="webrtcStatusText" style="font-size:.75rem;color:rgba(255,255,255,.5);">WebRTC: Chưa tham
+                    gia</span>
+            </div>
+
+            <div class="top-actions">
+                <button class="btn-leave" onclick="leaveMeeting()">
+                    📴 Rời phòng
+                </button>
+            </div>
+        </header>
+
+        <!-- ── Body ────────────────────────────────────────────── -->
+        <div class="meeting-body">
+
+            <!-- ── LEFT: Video + Controls ────────────────────────── -->
+            <div class="video-area">
+
+                <!-- Video grid -->
+                <div class="video-grid" id="videoGrid" style="position:relative;">
+                    <!-- Tiles added dynamically -->
+                </div>
+
+                <!-- Empty state -->
+                <div class="video-empty" id="videoEmpty">
+                    <div class="empty-icon">📹</div>
+                    <h3>Chưa ai trong cuộc gọi</h3>
+                    <p>Nhấn "Tham gia cuộc gọi" để bắt đầu</p>
+                </div>
+
+                <!-- Subtitle overlay -->
+                <div class="subtitle-overlay" id="subtitleOverlay" style="display:none;">
+                    <div class="subtitle-box">
+                        <div class="sub-speaker" id="subSpeaker"></div>
+                        <div class="sub-original" id="subOriginal"></div>
+                        <div class="sub-translated" id="subTranslated"></div>
+                        <div class="sub-status" id="subStatus"></div>
+                    </div>
+                </div>
+
+                <!-- Controls bar -->
+                <div class="controls-bar">
+                    <!-- Join call -->
+                    <button class="ctrl-btn ctrl-join" id="btnJoinCall" onclick="joinCall()" title="Tham gia cuộc gọi">
+                        📞
+                        <span class="ctrl-label">Tham gia</span>
+                    </button>
+
+                    <!-- Mic toggle -->
+                    <button class="ctrl-btn ctrl-mic hidden" id="btnToggleMic" onclick="toggleMic()"
+                        title="Bật/tắt mic">
+                        🎤
+                        <span class="ctrl-label">Mic</span>
+                    </button>
+
+                    <!-- Screen share toggle -->
+                    <button class="ctrl-btn ctrl-screen hidden" id="btnToggleScreen" onclick="toggleScreen()"
+                        title="Chia sẻ màn hình">
+                        🖥️
+                        <span class="ctrl-label">Màn hình</span>
+                    </button>
+
+                    <!-- Leave call -->
+                    <button class="ctrl-btn ctrl-leave hidden" id="btnLeaveCall" onclick="leaveCall()"
+                        title="Rời cuộc gọi">
+                        ☎️
+                        <span class="ctrl-label">Rời gọi</span>
+                    </button>
+
+                    <div style="width:1px;height:32px;background:rgba(255,255,255,.1);margin:0 4px;"></div>
+
+                    <!-- STT manual toggle label -->
+                    <div id="sttStatusBadge"
+                        style="display:flex;align-items:center;gap:6px;font-size:.72rem;color:rgba(255,255,255,.5);">
+                        <span id="sttCtrlLabel">STT: Tự động</span>
+                    </div>
+                </div>
+            </div><!-- /video-area -->
+
+            <!-- ── RIGHT: AI Panel ───────────────────────────────── -->
+            <div class="ai-panel">
+
+                <!-- Language selector -->
+                <div class="lang-selector-row">
+                    <div class="lang-item">
+                        <div class="lang-label">Tôi nói</div>
+                        <select id="meetSpeakLang" onchange="saveLanguages()"></select>
+                    </div>
+                    <span class="lang-arrow">→</span>
+                    <div class="lang-item">
+                        <div class="lang-label">Tôi nghe</div>
+                        <select id="meetListenLang" onchange="saveLanguages()"></select>
+                    </div>
+                </div>
+
+                <!-- STT status bar -->
+                <div class="stt-status-bar idle" id="sttStatusBar">
+                    <span class="stt-dot"></span>
+                    <span>Chưa kết nối</span>
+                </div>
+
+                <!-- Tabs -->
+                <div class="ai-tabs">
+                    <div class="ai-tab active" data-tab="transcript" onclick="switchTab('transcript')">🎤 Nhận diện
+                    </div>
+                    <div class="ai-tab" data-tab="participants" onclick="switchTab('participants')">👥 Thành viên</div>
+                </div>
+
+                <!-- Pane: Transcript -->
+                <div class="ai-tab-content">
+
+                    <div class="ai-pane active" id="pane-transcript">
+                        <div style="display:flex;justify-content:flex-end;padding:4px 8px;flex-shrink:0;">
+                            <button class="btn btn-ghost btn-sm" onclick="clearTranscript()">🗑 Xóa</button>
+                        </div>
+                        <div class="transcript-feed" id="transcriptFeed">
+                            <div style="padding:30px;text-align:center;color:var(--gray-400);">
+                                <div style="font-size:2rem;margin-bottom:8px;">🎤</div>
+                                <div style="font-size:.85rem;">Lời nói sẽ hiển thị tại đây</div>
+                                <div style="font-size:.75rem;margin-top:6px;color:var(--gray-300);">Tham gia cuộc gọi để
+                                    bắt đầu</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pane: Participants -->
+                    <div class="ai-pane" id="pane-participants">
+                        <div class="transcript-feed" id="panelParticipantsList">
+                            <div style="padding:30px;text-align:center;color:var(--gray-400);">
+                                <div style="font-size:2rem;margin-bottom:8px;">👥</div>
+                                <div style="font-size:.85rem;">Tất cả thành viên tham gia</div>
+                                <div style="font-size:.75rem;margin-top:6px;color:var(--gray-300);">Tham gia cuộc gọi để
+                                    xem</div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /ai-tab-content -->
+
+                <!-- Autoplay banner -->
+                <div class="autoplay-banner" id="autoplayBanner">
+                    <span>🔇 Trình duyệt chặn tự động phát âm thanh.</span>
+                    <button class="btn btn-warning btn-sm" onclick="unlockAudio()">Bật âm thanh</button>
+                </div>
+
+            </div><!-- /ai-panel -->
+
+            <!-- ── RIGHT: Members Panel ──────────────────────────── -->
+            <div class="members-panel">
+                <div class="members-panel-head">
+                    <div class="mph-title">
+                        👥 Thành viên
+                    </div>
+                    <span class="mph-count" id="participantCount">0</span>
+                </div>
+                <div class="members-list" id="participantsList">
+                    <div class="members-empty">
+                        <div class="me-icon">👥</div>
+                        Chưa có ai
+                    </div>
+                </div>
+            </div><!-- /members-panel -->
+        </div><!-- /meeting-body -->
+    </div><!-- /meeting-layout -->
+
+    <!-- Toast container -->
+    <div id="toast-container"></div>
+
+    <script src="app.js"></script>
+    <script src="webrtc-service.js"></script>
+    <script src="auto-stt.js"></script>
+    <script src="meeting.js"></script>
+</body>
+
+</html>

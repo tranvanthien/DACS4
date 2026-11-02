@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Dashboard — Admin LinguaMeet</title>
+    <link rel="stylesheet" href="admin.css" />
+    <!-- Chart.js for smooth data visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        .ai-status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+            margin-top: 10px;
+        }
+        .ai-card {
+            background: var(--sur);
+            border: 1px solid var(--g200);
+            border-radius: var(--rl);
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: var(--sh);
+            transition: var(--tr);
+        }
+        .ai-card:hover {
+            box-shadow: var(--shm);
+            border-color: var(--pl);
+        }
+        .ai-card-hd {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .ai-title {
+            font-size: .88rem;
+            font-weight: 600;
+            color: var(--g900);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ai-metric {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            margin-top: 6px;
+        }
+        .ai-metric-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--g800);
+        }
+        .ai-metric-unit {
+            font-size: .75rem;
+            color: var(--g500);
+        }
+        .ai-meta {
+            font-size: .74rem;
+            color: var(--g500);
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+        .charts-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        @media (max-width: 992px) {
+            .charts-row {
+                grid-template-columns: 1fr;
+            }
+        }
+        .chart-box {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+
+        <div class="admin-main">
+            <header class="admin-topbar" id="adminTopbar"></header>
+
+            <div class="admin-content">
+
+                <!-- 1. Stats KPI Row -->
+                <div class="stats-row" id="statsRow">
+                    <div class="stat-card">
+                        <div class="stat-icon purple">👥</div>
+                        <div>
+                            <div class="stat-val" id="sUsers">—</div>
+                            <div class="stat-lbl">Người dùng (<span id="sNewUsers" style="color:var(--ok);">+0</span> tuần này)</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue">📹</div>
+                        <div>
+                            <div class="stat-val" id="sRooms">—</div>
+                            <div class="stat-lbl">Phòng họp (<span id="sActiveRooms" style="color:var(--p);">0 đang mở</span>)</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">⚡</div>
+                        <div>
+                            <div class="stat-val" id="sLiveParticipants">—</div>
+                            <div class="stat-lbl">Đang gọi trực tuyến (Live)</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange">🌐</div>
+                        <div>
+                            <div class="stat-val" id="sLangs">—</div>
+                            <div class="stat-lbl">Ngôn ngữ hỗ trợ AI</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background:#fee2e2;color:#ef4444;" id="errCardIcon">⚠️</div>
+                        <div>
+                            <div class="stat-val" id="sErrors" style="color:#ef4444;">—</div>
+                            <div class="stat-lbl">Lỗi hệ thống (24h)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. AI Services Status (Whisper / Translation / TTS / WebRTC) -->
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-head">
+                        <div>
+                            <h3 style="display:flex;align-items:center;gap:8px;">
+                                <span>⚡ Trạng thái Dịch vụ AI & Hạ tầng Realtime</span>
+                                <span id="overallBadge" class="badge badge-ok"><span class="dot dot-ok dot-pulse"></span>Hoạt động tốt</span>
+                            </h3>
+                            <p style="font-size:.76rem;color:var(--g500);margin-top:2px;">
+                                Kiểm tra thực tế thời gian thực tại backend qua model Whisper và API Dịch/TTS
+                            </p>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="checkAIServices(true)">
+                            <span id="aiSpin" class="spin spin-sm" style="display:none;margin-right:4px;"></span>
+                            🔄 Kiểm tra lại ngay
+                        </button>
+                    </div>
+
+                    <div class="ai-status-grid" id="aiStatusGrid">
+                        <!-- Whisper Card -->
+                        <div class="ai-card" id="cardWhisper">
+                            <div>
+                                <div class="ai-card-hd">
+                                    <div class="ai-title">🎙️ STT / Whisper</div>
+                                    <span class="badge badge-gray" id="badgeWhisper">Đang kiểm tra...</span>
+                                </div>
+                                <div class="ai-metric">
+                                    <div class="ai-metric-val" id="valWhisperModel">small</div>
+                                    <div class="ai-metric-unit" id="valWhisperCompute">cpu/int8</div>
+                                </div>
+                                <div class="ai-meta" id="metaWhisper">Nạp mô hình nhận diện giọng nói faster-whisper.</div>
+                            </div>
+                        </div>
+
+                        <!-- Translation Card -->
+                        <div class="ai-card" id="cardTranslation">
+                            <div>
+                                <div class="ai-card-hd">
+                                    <div class="ai-title">🌐 Dịch thuật AI</div>
+                                    <span class="badge badge-gray" id="badgeTranslation">Đang kiểm tra...</span>
+                                </div>
+                                <div class="ai-metric">
+                                    <div class="ai-metric-val" id="valTransLatency">—</div>
+                                    <div class="ai-metric-unit">ms phản hồi</div>
+                                </div>
+                                <div class="ai-meta" id="metaTranslation">Provider: deep_google (gtx + MyMemory fallback).</div>
+                            </div>
+                        </div>
+
+                        <!-- TTS Card -->
+                        <div class="ai-card" id="cardTTS">
+                            <div>
+                                <div class="ai-card-hd">
+                                    <div class="ai-title">🔊 Giọng nói TTS</div>
+                                    <span class="badge badge-gray" id="badgeTTS">Đang kiểm tra...</span>
+                                </div>
+                                <div class="ai-metric">
+                                    <div class="ai-metric-val" id="valTTSLatency">—</div>
+                                    <div class="ai-metric-unit">ms phản hồi</div>
+                                </div>
+                                <div class="ai-meta" id="metaTTS">Tổng hợp audio phát lại cho người nghe theo ngôn ngữ.</div>
+                            </div>
+                        </div>
+
+                        <!-- WebRTC Card -->
+                        <div class="ai-card" id="cardWebRTC">
+                            <div>
+                                <div class="ai-card-hd">
+                                    <div class="ai-title">📡 WebRTC & WebSocket</div>
+                                    <span class="badge badge-ok" id="badgeWebRTC">Hoạt động</span>
+                                </div>
+                                <div class="ai-metric">
+                                    <div class="ai-metric-val" id="valWebRTCConns">0</div>
+                                    <div class="ai-metric-unit">kết nối peer live</div>
+                                </div>
+                                <div class="ai-meta" id="metaWebRTC">STUN: Google STUN. TURN: Sẵn sàng.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Charts Section -->
+                <div class="charts-row">
+                    <!-- Timeline Chart -->
+                    <div class="card">
+                        <div class="card-head">
+                            <h3>📈 Tần suất Cuộc họp & Người dùng (14 ngày gần nhất)</h3>
+                            <button class="btn btn-ghost btn-xs" onclick="loadCharts()">🔄</button>
+                        </div>
+                        <div style="padding:16px;">
+                            <div class="chart-box">
+                                <canvas id="timelineChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Languages Doughnut Chart -->
+                    <div class="card">
+                        <div class="card-head">
+                            <h3>🌐 Cơ cấu Ngôn ngữ Người dùng</h3>
+                        </div>
+                        <div style="padding:16px;">
+                            <div class="chart-box">
+                                <canvas id="languageChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Danh sách Lỗi Gần đây (Recent Errors) -->
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-head">
+                        <div>
+                            <h3 style="display:flex;align-items:center;gap:8px;">
+                                <span>⚠️ Danh sách Lỗi & Cảnh báo Hệ thống Gần đây</span>
+                                <span class="badge badge-gray" id="errorCountBadge">0 lỗi</span>
+                            </h3>
+                            <p style="font-size:.76rem;color:var(--g500);margin-top:2px;">
+                                Truy vết trực tiếp từ bảng <code>system_logs</code> khi dịch vụ AI hoặc WebSocket phát sinh sự cố
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <a href="monitor.html" class="btn btn-secondary btn-sm">Xem chi tiết nhật ký →</a>
+                            <button class="btn btn-ghost btn-sm" onclick="loadRecentErrors()">🔄 Làm mới</button>
+                        </div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th style="width:140px;">Thời gian</th>
+                                    <th style="width:100px;">Mức độ</th>
+                                    <th style="width:120px;">Dịch vụ</th>
+                                    <th>Nội dung thông điệp lỗi</th>
+                                    <th style="width:90px;text-align:right;">Chi tiết</th>
+                                </tr>
+                            </thead>
+                            <tbody id="errorTableBody">
+                                <tr>
+                                    <td colspan="5" style="text-align:center;padding:24px;">
+                                        <span class="spin"></span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 5. Recent Users & Recent Rooms -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;">
+                    <div class="card">
+                        <div class="card-head">
+                            <h3>👥 Người dùng mới tham gia</h3>
+                            <a href="users.html" class="btn btn-ghost btn-sm">Xem tất cả →</a>
+                        </div>
+                        <div id="recentUsers">
+                            <div style="padding:16px;text-align:center;"><span class="spin"></span></div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-head">
+                            <h3>📹 Cuộc họp được khởi tạo gần đây</h3>
+                            <a href="rooms.html" class="btn btn-ghost btn-sm">Xem tất cả →</a>
+                        </div>
+                        <div id="recentRooms">
+                            <div style="padding:16px;text-align:center;"><span class="spin"></span></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Xem Chi Tiết Lỗi -->
+    <div id="modalErrorDetail" class="modal-bg" onclick="if(event.target===this)closeModal('modalErrorDetail')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>Chi tiết lỗi hệ thống</h3>
+                <button class="x-btn" onclick="closeModal('modalErrorDetail')">✕</button>
+            </div>
+            <div class="modal-body" id="modalErrorContent" style="font-size:.82rem;"></div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalErrorDetail')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        let timelineChartInstance = null;
+        let languageChartInstance = null;
+
+        async function initDashboard() {
+            const admin = A.require();
+            if (!admin) return;
+
+            renderSidebar('dashboard.html');
+            renderTopbar('Dashboard Quản trị');
+
+            // Tải song song tất cả các thành phần
+            await Promise.all([
+                loadOverviewStats(),
+                checkAIServices(false),
+                loadCharts(),
+                loadRecentErrors(),
+                loadRecentUsers(),
+                loadRecentRooms()
+            ]);
+        }
+
+        /* 1. Tải Thống kê tổng quan */
+        async function loadOverviewStats() {
+            try {
+                const data = await apiGet('/api/admin/stats/overview');
+                document.getElementById('sUsers').textContent = data.users.total;
+                document.getElementById('sNewUsers').textContent = `+${data.users.new_7d}`;
+                document.getElementById('sRooms').textContent = data.rooms.total;
+                document.getElementById('sActiveRooms').innerHTML = data.realtime.live_rooms > 0 
+                    ? `<span style="color:var(--ok);font-weight:700;">🟢 ${data.realtime.live_rooms} đang họp live</span> (${data.rooms.active} mở)` 
+                    : `${data.rooms.active} đang mở (0 live)`;
+                document.getElementById('sLiveParticipants').textContent = `${data.realtime.live_participants} người (${data.realtime.live_rooms} phòng)`;
+                document.getElementById('sLangs').textContent = data.languages.total;
+                document.getElementById('sErrors').textContent = data.system.errors_24h;
+
+                if (data.system.errors_24h > 0) {
+                    document.getElementById('errCardIcon').style.background = '#fee2e2';
+                } else {
+                    document.getElementById('errCardIcon').style.background = '#eef2ff';
+                    document.getElementById('errCardIcon').textContent = '✅';
+                    document.getElementById('sErrors').style.color = 'var(--ok)';
+                }
+            } catch (e) {
+                T.err('Lỗi tải thống kê', e.message);
+            }
+        }
+
+        /* 2. Kiểm tra thực tế AI Services */
+        async function checkAIServices(showToast = false) {
+            const spin = document.getElementById('aiSpin');
+            if (spin) spin.style.display = 'inline-block';
+
+            try {
+                const res = await apiGet('/api/admin/ai/status');
+                const services = res.services || {};
+
+                // Whisper STT
+                const w = services.whisper || {};
+                const badgeW = document.getElementById('badgeWhisper');
+                if (w.status === 'online') {
+                    badgeW.className = 'badge badge-ok';
+                    badgeW.innerHTML = '<span class="dot dot-ok dot-pulse"></span>Online';
+                } else {
+                    badgeW.className = 'badge badge-err';
+                    badgeW.textContent = 'Offline';
+                }
+                document.getElementById('valWhisperModel').textContent = w.model || 'small';
+                document.getElementById('valWhisperCompute').textContent = `${w.device}/${w.compute_type}`;
+                document.getElementById('metaWhisper').textContent = `VAD min: ${w.min_speech_ms}ms, beam_size: ${w.beam_size}. Model đã nạp sẵn sàng.`;
+
+                // Translation
+                const tr = services.translation || {};
+                const badgeTr = document.getElementById('badgeTranslation');
+                if (tr.status === 'online') {
+                    badgeTr.className = 'badge badge-ok';
+                    badgeTr.innerHTML = '<span class="dot dot-ok dot-pulse"></span>Online';
+                } else if (tr.status === 'degraded') {
+                    badgeTr.className = 'badge badge-warn';
+                    badgeTr.textContent = 'Chậm/Cảnh báo';
+                } else {
+                    badgeTr.className = 'badge badge-err';
+                    badgeTr.textContent = 'Lỗi';
+                }
+                const transLat = tr.avg_latency_ms || tr.last_latency_ms;
+                document.getElementById('valTransLatency').textContent = transLat ? `${transLat}` : 'Chưa có';
+                document.getElementById('metaTranslation').textContent = `${tr.description}. Yêu cầu: ${tr.requests_total || 0}, 429: ${tr.rate_limit_429 || 0}`;
+
+                // TTS
+                const tts = services.tts || {};
+                const badgeTTS = document.getElementById('badgeTTS');
+                if (tts.status === 'online') {
+                    badgeTTS.className = 'badge badge-ok';
+                    badgeTTS.innerHTML = '<span class="dot dot-ok dot-pulse"></span>Online';
+                } else if (tts.status === 'idle') {
+                    badgeTTS.className = 'badge badge-gray';
+                    badgeTTS.textContent = 'Sẵn sàng';
+                } else {
+                    badgeTTS.className = 'badge badge-warn';
+                    badgeTTS.textContent = tts.status || 'Offline';
+                }
+                const ttsLat = tts.avg_latency_ms || tts.last_latency_ms;
+                document.getElementById('valTTSLatency').textContent = ttsLat ? `${ttsLat}` : 'Chưa có';
+                document.getElementById('metaTTS').textContent = `${tts.description || 'Chưa kiểm tra'}. Yêu cầu: ${tts.requests_total || 0}`;
+
+                // WebRTC
+                const rtc = services.webrtc || {};
+                document.getElementById('valWebRTCConns').textContent = rtc.active_peers || 0;
+                document.getElementById('metaWebRTC').textContent = `${rtc.active_rooms || 0} phòng live. STUN: OK.`;
+
+                // Overall badge
+                const ovBadge = document.getElementById('overallBadge');
+                if (res.overall_status === 'healthy') {
+                    ovBadge.className = 'badge badge-ok';
+                    ovBadge.innerHTML = '<span class="dot dot-ok dot-pulse"></span>Hạ tầng ổn định';
+                } else if (res.overall_status === 'degraded') {
+                    ovBadge.className = 'badge badge-warn';
+                    ovBadge.textContent = 'Có dịch vụ độ trễ cao';
+                } else {
+                    ovBadge.className = 'badge badge-err';
+                    ovBadge.textContent = 'Cảnh báo lỗi AI';
+                }
+
+                if (showToast) T.ok('Kiểm tra AI', 'Đã cập nhật trạng thái Whisper, Dịch và TTS');
+            } catch (e) {
+                T.err('Kiểm tra dịch vụ AI thất bại', e.message);
+            } finally {
+                if (spin) spin.style.display = 'none';
+            }
+        }
+
+        /* 3. Tải Biểu đồ */
+        async function loadCharts() {
+            try {
+                const charts = await apiGet('/api/admin/stats/charts');
+
+                // 3.1 Timeline Chart (Cuộc họp & User theo ngày)
+                const mt = charts.meetings_timeline || [];
+                const ut = charts.users_timeline || [];
+
+                const labels = mt.map(item => item.date.slice(5)); // 'MM-DD'
+                const meetData = mt.map(item => item.count);
+                const userData = ut.map(item => item.count);
+
+                const ctxTime = document.getElementById('timelineChart').getContext('2d');
+                if (timelineChartInstance) timelineChartInstance.destroy();
+
+                timelineChartInstance = new Chart(ctxTime, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Cuộc họp tạo mới',
+                                data: meetData,
+                                borderColor: '#6366f1',
+                                backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                                fill: true,
+                                tension: 0.35,
+                                borderWidth: 2,
+                                pointRadius: 3,
+                            },
+                            {
+                                label: 'Người dùng mới',
+                                data: userData,
+                                borderColor: '#06b6d4',
+                                backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                                fill: true,
+                                tension: 0.35,
+                                borderWidth: 2,
+                                pointRadius: 3,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } },
+                        },
+                        scales: {
+                            y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } },
+                            x: { ticks: { font: { size: 10 } } }
+                        }
+                    }
+                });
+
+                // 3.2 Language Distribution Chart
+                const langs = charts.languages || {};
+                const langLabels = [];
+                const langValues = [];
+                const bgColors = ['#6366f1', '#06b6d4', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#3b82f6', '#14b8a6'];
+
+                Object.keys(langs).forEach(code => {
+                    const l = langs[code];
+                    if (l.total > 0) {
+                        langLabels.push(`${l.flag} ${l.name}`);
+                        langValues.push(l.total);
+                    }
+                });
+
+                if (langValues.length === 0) {
+                    langLabels.push('Tiếng Việt', 'English');
+                    langValues.push(4, 2);
+                }
+
+                const ctxLang = document.getElementById('languageChart').getContext('2d');
+                if (languageChartInstance) languageChartInstance.destroy();
+
+                languageChartInstance = new Chart(ctxLang, {
+                    type: 'doughnut',
+                    data: {
+                        labels: langLabels,
+                        datasets: [{
+                            data: langValues,
+                            backgroundColor: bgColors.slice(0, langLabels.length),
+                            borderWidth: 2,
+                            borderColor: '#ffffff',
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'right', labels: { boxWidth: 10, font: { size: 10 } } }
+                        },
+                        cutout: '65%'
+                    }
+                });
+
+            } catch (e) {
+                console.error('Lỗi tải biểu đồ:', e);
+            }
+        }
+
+        /* 4. Tải Danh sách Lỗi gần đây */
+        let currentLogsList = [];
+        async function loadRecentErrors() {
+            const tbody = document.getElementById('errorTableBody');
+            try {
+                const data = await apiGet('/api/admin/logs?limit=5');
+                const logs = data.logs || [];
+                currentLogsList = logs;
+                document.getElementById('errorCountBadge').textContent = `${data.total} ghi nhận`;
+
+                if (!logs.length) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--ok);font-size:.84rem;">
+                        ✅ Hệ thống đang vận hành hoàn toàn bình thường, không có lỗi ghi nhận.
+                    </td></tr>`;
+                    return;
+                }
+
+                tbody.innerHTML = logs.map((log, idx) => {
+                    const lvlBadge = log.level === 'ERROR' 
+                        ? '<span class="badge badge-err">LỖI</span>'
+                        : log.level === 'WARNING'
+                        ? '<span class="badge badge-warn">CẢNH BÁO</span>'
+                        : '<span class="badge badge-ok">INFO</span>';
+
+                    return `
+                    <tr>
+                        <td style="font-size:.75rem;color:var(--g500);">${fmtDT(log.created_at)}</td>
+                        <td>${lvlBadge}</td>
+                        <td><code style="background:var(--g100);padding:2px 6px;border-radius:4px;font-size:.72rem;">${xe(log.service)}</code></td>
+                        <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;">
+                            ${xe(log.message)}
+                        </td>
+                        <td style="text-align:right;">
+                            <button class="btn btn-ghost btn-xs" onclick="viewErrorDetail(${idx})">Chi tiết</button>
+                        </td>
+                    </tr>`;
+                }).join('');
+
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:var(--err);padding:16px;">Lỗi tải nhật ký: ${xe(e.message)}</td></tr>`;
+            }
+        }
+
+        function viewErrorDetail(idx) {
+            const log = currentLogsList[idx];
+            if (!log) return;
+            document.getElementById('modalErrorContent').innerHTML = `
+                <div style="margin-bottom:12px;">
+                    <div style="font-size:.75rem;color:var(--g400);">Thời gian: ${fmtDT(log.created_at)}</div>
+                    <div style="font-size:.9rem;font-weight:600;margin-top:4px;color:var(--g900);">${xe(log.message)}</div>
+                </div>
+                <div style="display:flex;gap:8px;margin-bottom:12px;">
+                    <span class="badge ${log.level==='ERROR'?'badge-err':'badge-warn'}">${log.level}</span>
+                    <span class="badge badge-gray">Dịch vụ: ${xe(log.service)}</span>
+                </div>
+                <label style="font-size:.74rem;font-weight:600;color:var(--g500);">CHI TIẾT KỸ THUẬT (STACKTRACE / METADATA):</label>
+                <pre style="background:var(--g900);color:#f8fafc;padding:12px;border-radius:6px;font-size:.75rem;overflow-x:auto;max-height:220px;margin-top:6px;">${xe(log.details || 'Không có chi tiết bổ sung.')}</pre>
+            `;
+            openModal('modalErrorDetail');
+        }
+
+        /* 5. Tải Người dùng & Cuộc họp gần đây */
+        async function loadRecentUsers() {
+            try {
+                const res = await apiGet('/api/admin/users?page=1&page_size=5');
+                const users = res.users || [];
+                const el = document.getElementById('recentUsers');
+                if (!users.length) {
+                    el.innerHTML = '<div class="empty-state"><div class="empty-icon">👥</div><h4>Chưa có người dùng</h4></div>';
+                    return;
+                }
+                el.innerHTML = users.map(u => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--g100);">
+                        <div class="cell-av">${(u.full_name || 'U').charAt(0).toUpperCase()}</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:.82rem;font-weight:600;color:var(--g900);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                ${xe(u.full_name)}
+                                ${u.is_admin ? '<span class="badge badge-ok" style="font-size:.65rem;margin-left:4px;">Admin</span>' : ''}
+                            </div>
+                            <div style="font-size:.72rem;color:var(--g500);">${xe(u.email)}</div>
+                        </div>
+                        <span style="font-size:.7rem;color:var(--g400);">${fmtDate(u.created_at)}</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('recentUsers').innerHTML = `<div style="padding:14px;color:var(--err);font-size:.8rem;">⚠ ${xe(e.message)}</div>`;
+            }
+        }
+
+        async function loadRecentRooms() {
+            try {
+                const res = await apiGet('/api/admin/rooms?page=1&page_size=5');
+                const rooms = res.rooms || [];
+                const el = document.getElementById('recentRooms');
+                if (!rooms.length) {
+                    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📹</div><h4>Chưa có phòng họp</h4></div>';
+                    return;
+                }
+                el.innerHTML = rooms.map(r => `
+                    <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--g100);">
+                        <div style="width:34px;height:34px;border-radius:7px;background:var(--pbg);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;">📹</div>
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-size:.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${xe(r.room_name)}</div>
+                            <span class="cell-mono">${xe(r.room_code)}</span> • <span style="font-size:.7rem;color:var(--g500);">Host: ${xe(r.host_name)}</span>
+                        </div>
+                        <span class="badge ${!r.is_active ? 'badge-gray' : (r.live_peers_count > 0 ? 'badge-ok' : 'badge-warn')}" style="${r.is_active && !r.live_peers_count ? 'background:rgba(245,158,11,0.12);color:#d97706;border:1px solid rgba(245,158,11,0.25);' : ''}">
+                            ${!r.is_active ? 'Đã đóng' : (r.live_peers_count > 0 ? '🟢 Đang họp' : 'Chờ họp')}
+                        </span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                document.getElementById('recentRooms').innerHTML = `<div style="padding:14px;color:var(--err);font-size:.8rem;">⚠ ${xe(e.message)}</div>`;
+            }
+        }
+
+        // Tự động khởi chạy
+        initDashboard();
+    </script>
+</body>
+
+</html>

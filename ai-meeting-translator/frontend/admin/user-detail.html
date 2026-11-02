@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Chi tiết người dùng — Admin LinguaMeet</title>
+    <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <div class="admin-main">
+            <header class="admin-topbar" id="adminTopbar"></header>
+            <div class="admin-content">
+
+                <div class="page-hd" style="margin-bottom:16px;">
+                    <div style="display:flex;align-items:center;gap:10px;">
+                        <a href="users.html" class="btn btn-ghost btn-sm">← Quay lại</a>
+                        <h2 id="pageTitle">Chi tiết người dùng</h2>
+                    </div>
+                    <div class="phd-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="openEditUserModal()">✏️ Chỉnh sửa thông tin</button>
+                    </div>
+                </div>
+
+                <!-- Loading / error -->
+                <div id="loadingState" style="text-align:center;padding:60px;"><span class="spin"></span></div>
+                <div id="errorState" style="display:none;text-align:center;padding:60px;color:var(--err);"></div>
+
+                <!-- Main content -->
+                <div id="mainContent" style="display:none;">
+
+                    <!-- Hero card -->
+                    <div class="user-hero" id="userHero"></div>
+
+                    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+
+                        <!-- Left column -->
+                        <div>
+                            <div class="info-block">
+                                <div class="info-block-head">📋 Thông tin tài khoản</div>
+                                <div class="info-block-body" id="userInfoGrid"></div>
+                            </div>
+
+                            <div class="info-block">
+                                <div class="info-block-head">📹 Danh sách phòng họp đã tạo (Host)</div>
+                                <div id="userHostedRooms" style="padding:16px 18px;">
+                                    <div style="text-align:center;"><span class="spin"></span></div>
+                                </div>
+                            </div>
+
+                            <div class="info-block">
+                                <div class="info-block-head">🤝 Lịch sử phòng đã tham gia</div>
+                                <div id="userRooms" style="padding:16px 18px;">
+                                    <div style="text-align:center;"><span class="spin"></span></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right column -->
+                        <div>
+                            <div class="info-block">
+                                <div class="info-block-head">🌐 Ngôn ngữ AI</div>
+                                <div style="padding:16px 18px;" id="userLangs"></div>
+                            </div>
+
+                            <div class="info-block">
+                                <div class="info-block-head">🛡️ Thao tác Quản trị</div>
+                                <div style="padding:16px 18px;display:flex;flex-direction:column;gap:10px;">
+                                    <button class="btn btn-secondary btn-sm w-full" onclick="openEditUserModal()">
+                                        ✏️ Sửa thông tin & Quyền
+                                    </button>
+                                    <button class="btn btn-ghost btn-sm w-full" style="border:1px solid var(--g300);" onclick="openResetPasswordModal()">
+                                        🔑 Đặt lại mật khẩu
+                                    </button>
+                                    <button class="btn btn-danger btn-sm w-full" onclick="confirmDeleteUser()">
+                                        🗑️ Xóa tài khoản này
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Chỉnh sửa User -->
+    <div id="modalEditUser" class="modal-bg" onclick="if(event.target===this)closeModal('modalEditUser')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>✏️ Cập nhật thông tin & Quyền</h3>
+                <button class="x-btn" onclick="closeModal('modalEditUser')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Họ và tên</label>
+                    <input id="eName" class="form-control" required />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input id="eEmail" type="email" class="form-control" required />
+                </div>
+                <div style="display:flex;gap:12px;">
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label">Ngôn ngữ nói</label>
+                        <select id="eSpeak" class="form-control"></select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label class="form-label">Ngôn ngữ nghe</label>
+                        <select id="eListen" class="form-control"></select>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:8px;">
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:.85rem;">
+                        <input id="eIsAdmin" type="checkbox" style="width:16px;height:16px;" />
+                        <span>Cấp quyền Quản trị viên (is_admin = True)</span>
+                    </label>
+                </div>
+                <div id="eErr" class="form-error" style="display:none;"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalEditUser')">Hủy</button>
+                <button class="btn btn-primary" onclick="saveUserEdit()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Reset mật khẩu -->
+    <div id="modalResetPwd" class="modal-bg" onclick="if(event.target===this)closeModal('modalResetPwd')">
+        <div class="modal" style="max-width:380px;">
+            <div class="modal-head">
+                <h3>🔐 Đặt lại mật khẩu</h3>
+                <button class="x-btn" onclick="closeModal('modalResetPwd')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Mật khẩu mới</label>
+                    <input id="newPwd" type="password" class="form-control" placeholder="Tối thiểu 6 ký tự" required />
+                </div>
+                <div id="pwdErr" class="form-error" style="display:none;"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalResetPwd')">Hủy</button>
+                <button class="btn btn-primary" onclick="savePassword()">Đổi mật khẩu</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        let userData = null, allLangs = [];
+        let userId = null;
+
+        async function init() {
+            if (!A.require()) return;
+            renderSidebar('users.html');
+            renderTopbar('Chi tiết Người dùng');
+
+            const params = new URLSearchParams(location.search);
+            userId = parseInt(params.get('id'));
+            if (!userId) { showError('Không tìm thấy ID người dùng trong URL.'); return; }
+
+            await loadData();
+        }
+
+        async function loadData() {
+            try {
+                const [userRes, langRes] = await Promise.all([
+                    apiGet(`/api/admin/users/${userId}`),
+                    apiGet('/api/admin/languages')
+                ]);
+                userData = userRes.user;
+                allLangs = langRes.languages || [];
+
+                renderUserDetail(userRes);
+            } catch (e) {
+                showError(`Không thể tải thông tin người dùng: ${e.message}`);
+            }
+        }
+
+        function showError(msg) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('errorState').style.display = 'block';
+            document.getElementById('errorState').innerHTML = `
+                <div style="font-size:2rem;margin-bottom:12px;">😕</div>
+                <div style="color:var(--err);font-size:.9rem;max-width:360px;margin:auto;">${xe(msg)}</div>
+                <a href="users.html" class="btn btn-ghost btn-sm" style="margin-top:16px;">← Về danh sách</a>
+            `;
+        }
+
+        function renderUserDetail(data) {
+            document.getElementById('loadingState').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+
+            const u = data.user;
+            document.getElementById('pageTitle').textContent = `Chi tiết: ${u.full_name}`;
+            document.title = `${u.full_name} — Admin LinguaMeet`;
+
+            // Hero
+            document.getElementById('userHero').innerHTML = `
+                <div class="user-hero-av">${(u.full_name || 'U').charAt(0).toUpperCase()}</div>
+                <div class="user-hero-info">
+                    <div class="uhi-name">
+                        ${xe(u.full_name)}
+                        ${u.is_admin ? '<span class="badge badge-ok" style="font-size:.7rem;margin-left:6px;">Quản trị viên</span>' : '<span class="badge badge-gray" style="font-size:.7rem;margin-left:6px;">Người dùng thường</span>'}
+                    </div>
+                    <div class="uhi-email">${xe(u.email)}</div>
+                    <div class="uhi-id">ID: #${u.id} · Đăng ký ngày ${fmtDT(u.created_at)}</div>
+                </div>
+            `;
+
+            // Info grid
+            document.getElementById('userInfoGrid').innerHTML = `
+                <div class="detail-item"><div class="dl">Mã ID</div><div class="dv">#${u.id}</div></div>
+                <div class="detail-item"><div class="dl">Họ tên</div><div class="dv"><b>${xe(u.full_name)}</b></div></div>
+                <div class="detail-item"><div class="dl">Email</div><div class="dv" style="word-break:break-all;">${xe(u.email)}</div></div>
+                <div class="detail-item"><div class="dl">Vai trò hệ thống</div><div class="dv">${u.is_admin ? '🛡️ Quản trị viên (Admin)' : '👤 Người dùng (User)'}</div></div>
+                <div class="detail-item"><div class="dl">Ngày tạo tài khoản</div><div class="dv">${fmtDT(u.created_at)}</div></div>
+            `;
+
+            // Hosted rooms
+            const hosted = data.hosted_rooms || [];
+            const hostedEl = document.getElementById('userHostedRooms');
+            if (!hosted.length) {
+                hostedEl.innerHTML = '<div style="color:var(--g400);font-size:.8rem;">Chưa từng chủ trì phòng họp nào.</div>';
+            } else {
+                hostedEl.innerHTML = `
+                    <table class="data-table">
+                        <thead><tr><th>Tên phòng</th><th>Mã</th><th>Thời gian</th><th>Trạng thái</th></tr></thead>
+                        <tbody>
+                            ${hosted.map(r => `
+                                <tr>
+                                    <td><b>${xe(r.room_name)}</b></td>
+                                    <td><span class="cell-mono">${xe(r.room_code)}</span></td>
+                                    <td style="font-size:.75rem;">${fmtDT(r.created_at)}</td>
+                                    <td><span class="badge ${r.is_active ? 'badge-ok' : 'badge-gray'}">${r.is_active ? 'Mở' : 'Đóng'}</span></td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Room history
+            const history = data.room_history || [];
+            const historyEl = document.getElementById('userRooms');
+            if (!history.length) {
+                historyEl.innerHTML = '<div style="color:var(--g400);font-size:.8rem;">Chưa tham gia cuộc họp nào.</div>';
+            } else {
+                historyEl.innerHTML = `
+                    <table class="data-table">
+                        <thead><tr><th>Tên phòng</th><th>Mã</th><th>Thời gian tham gia</th></tr></thead>
+                        <tbody>
+                            ${history.map(r => `
+                                <tr>
+                                    <td>${xe(r.room_name)}</td>
+                                    <td><span class="cell-mono">${xe(r.room_code)}</span></td>
+                                    <td style="font-size:.75rem;">${fmtDT(r.joined_at)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            // Languages
+            const spLang = allLangs.find(l => l.code === u.speaking_language);
+            const liLang = allLangs.find(l => l.code === u.listening_language);
+            document.getElementById('userLangs').innerHTML = `
+                <div style="margin-bottom:14px;">
+                    <div style="font-size:.7rem;color:var(--g500);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Ngôn ngữ nói mặc định</div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:1.4rem;">${spLang?.flag || '🌐'}</span>
+                        <span style="font-weight:600;">${xe(spLang?.name || u.speaking_language)}</span>
+                        <span class="badge badge-primary">${u.speaking_language}</span>
+                    </div>
+                </div>
+                <div>
+                    <div style="font-size:.7rem;color:var(--g500);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">Ngôn ngữ nghe (bản dịch)</div>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-size:1.4rem;">${liLang?.flag || '🌐'}</span>
+                        <span style="font-weight:600;">${xe(liLang?.name || u.listening_language)}</span>
+                        <span class="badge badge-blue">${u.listening_language}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        function openEditUserModal() {
+            if (!userData) return;
+            document.getElementById('eName').value = userData.full_name;
+            document.getElementById('eEmail').value = userData.email;
+            document.getElementById('eIsAdmin').checked = !!userData.is_admin;
+            document.getElementById('eErr').style.display = 'none';
+
+            const opts = allLangs.map(l => `<option value="${l.code}">${l.flag} ${l.name}</option>`).join('');
+            document.getElementById('eSpeak').innerHTML = opts;
+            document.getElementById('eListen').innerHTML = opts;
+            document.getElementById('eSpeak').value = userData.speaking_language;
+            document.getElementById('eListen').value = userData.listening_language;
+
+            openModal('modalEditUser');
+        }
+
+        async function saveUserEdit() {
+            const errEl = document.getElementById('eErr');
+            errEl.style.display = 'none';
+
+            const payload = {
+                full_name: document.getElementById('eName').value.trim(),
+                email: document.getElementById('eEmail').value.trim(),
+                speaking_language: document.getElementById('eSpeak').value,
+                listening_language: document.getElementById('eListen').value,
+                is_admin: document.getElementById('eIsAdmin').checked,
+            };
+
+            try {
+                await apiPut(`/api/admin/users/${userId}`, payload);
+                T.ok('Cập nhật thành công', payload.email);
+                closeModal('modalEditUser');
+                await loadData();
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        function openResetPasswordModal() {
+            document.getElementById('newPwd').value = '';
+            document.getElementById('pwdErr').style.display = 'none';
+            openModal('modalResetPwd');
+        }
+
+        async function savePassword() {
+            const pwd = document.getElementById('newPwd').value;
+            const errEl = document.getElementById('pwdErr');
+            errEl.style.display = 'none';
+
+            if (!pwd || pwd.length < 6) {
+                errEl.textContent = 'Mật khẩu phải từ 6 ký tự trở lên';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            try {
+                await apiPut(`/api/admin/users/${userId}/password`, { new_password: pwd });
+                T.ok('Đổi mật khẩu thành công', '');
+                closeModal('modalResetPwd');
+            } catch (err) {
+                errEl.textContent = err.message;
+                errEl.style.display = 'block';
+            }
+        }
+
+        async function confirmDeleteUser() {
+            if (!confirm(`Xóa vĩnh viễn tài khoản [${userData.email}]? Thao tác này không thể hoàn tác.`)) return;
+            try {
+                await apiDelete(`/api/admin/users/${userId}`);
+                T.ok('Đã xóa người dùng', '');
+                setTimeout(() => location.href = 'users.html', 1000);
+            } catch (err) {
+                T.err('Lỗi xóa tài khoản', err.message);
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

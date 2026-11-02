@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>Quản lý thành viên — LinguaMeet</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🌐</div>
+                <div>
+                    <div class="brand-name">LinguaMeet</div>
+                    <div class="brand-sub">AI Translator</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Menu</div>
+                <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Tổng quan</a>
+                <div class="nav-section-label" style="margin-top:8px;">Công cụ</div>
+                <a class="nav-item" href="lobby.html"><span class="nav-icon">🚪</span> Phòng chờ</a>
+                <a class="nav-item" href="transcript.html"><span class="nav-icon">📝</span> Phụ đề trực tiếp</a>
+                <a class="nav-item" href="summary.html"><span class="nav-icon">🤖</span> Biên bản AI</a>
+                <a class="nav-item active" href="participants.html"><span class="nav-icon">👥</span> Thành viên</a>
+                <a class="nav-item" href="languages.html"><span class="nav-icon">🌐</span> Ngôn ngữ</a>
+                <div class="nav-section-label" style="margin-top:8px;">Hệ thống</div>
+                <a class="nav-item" href="help.html"><span class="nav-icon">❓</span> Hỗ trợ</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="avatar avatar-sm" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUserName">—</div>
+                    <div class="user-email" id="sidebarUserEmail">—</div>
+                </div>
+                <a href="index.html" class="btn-icon" style="margin-left:auto;">🏠</a>
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <header class="topbar">
+                <button class="btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"
+                    style="display:none;" id="btnSidebarToggle">☰</button>
+                <div style="flex:1;">
+                    <span style="font-size:.85rem;color:var(--gray-500);">LinguaMeet /</span>
+                    <span style="font-size:.85rem;font-weight:600;"> Thành viên</span>
+                </div>
+                <div class="topbar-actions">
+                    <div class="topbar-search" style="max-width:240px;">
+                        <span style="color:var(--gray-400);">🔍</span>
+                        <input type="text" placeholder="Tìm thành viên..." id="searchParticipant"
+                            oninput="filterParticipants()" />
+                    </div>
+                </div>
+            </header>
+
+            <div class="page-body">
+
+                <!-- Room filter -->
+                <div class="card">
+                    <div class="card-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div class="form-group" style="flex-direction:row;align-items:center;gap:8px;margin:0;">
+                            <label style="font-size:.82rem;color:var(--gray-600);white-space:nowrap;">Lọc theo
+                                phòng</label>
+                            <select id="ptRoomFilter" class="form-control" style="width:200px;"
+                                onchange="loadParticipants()">
+                                <option value="">— Tất cả phòng —</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-ghost btn-sm" onclick="loadAllRooms()">🔄 Làm mới</button>
+                        <span id="ptStats" style="font-size:.8rem;color:var(--gray-500);margin-left:auto;"></span>
+                    </div>
+                </div>
+
+                <!-- Stats row -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">
+                    <div class="stat-card">
+                        <div class="stat-icon purple">👤</div>
+                        <div>
+                            <div class="stat-value" id="statTotalUsers">—</div>
+                            <div class="stat-label">Tổng thành viên</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green">🟢</div>
+                        <div>
+                            <div class="stat-value" id="statActiveUsers">—</div>
+                            <div class="stat-label">Đang hoạt động</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon blue">📹</div>
+                        <div>
+                            <div class="stat-value" id="statRoomCount">—</div>
+                            <div class="stat-label">Số phòng</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table -->
+                <div class="participants-table">
+                    <div class="pt-head">
+                        <span>Thành viên</span>
+                        <span>Ngôn ngữ nói</span>
+                        <span>Ngôn ngữ nghe</span>
+                        <span>Trạng thái</span>
+                        <span>Thao tác</span>
+                    </div>
+                    <div id="participantsTableBody">
+                        <div style="padding:40px;text-align:center;color:var(--gray-400);">
+                            <span class="spinner"></span>
+                            <div style="margin-top:8px;">Đang tải...</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: xem chi tiết user -->
+    <div id="modalUserDetail" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>👤 Chi tiết thành viên</h3>
+                <button class="btn-close" onclick="closeModal('modalUserDetail')">✕</button>
+            </div>
+            <div class="modal-body" id="modalUserDetailBody">—</div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('modalUserDetail')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        let allUsers = [];
+        let allRoomsData = [];
+
+        async function initParticipants() {
+            const user = Session.load();
+            if (user) {
+                const init = (user.full_name || 'U').charAt(0).toUpperCase();
+                ['sidebarAvatar'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = init; });
+                document.getElementById('sidebarUserName').textContent = user.full_name || '';
+                document.getElementById('sidebarUserEmail').textContent = user.email || '';
+            }
+            await loadAllRooms();
+            await loadAllUsers();
+            handleResize();
+            window.addEventListener('resize', handleResize);
+        }
+
+        async function loadAllRooms() {
+            try {
+                // Load current user's rooms to populate filter
+                const user = Session.load();
+                if (!user) return;
+                const res = await fetch(`${API}/api/users/${user.id}/rooms`);
+                if (res.ok) {
+                    allRoomsData = await res.json();
+                    const sel = document.getElementById('ptRoomFilter');
+                    sel.innerHTML = '<option value="">— Tất cả phòng —</option>';
+                    allRoomsData.forEach(r => {
+                        const o = document.createElement('option');
+                        o.value = r.room_code;
+                        o.textContent = `${r.room_name} (${r.room_code})`;
+                        sel.appendChild(o);
+                    });
+                    document.getElementById('statRoomCount').textContent = allRoomsData.length;
+                }
+            } catch (_) { }
+        }
+
+        async function loadAllUsers() {
+            try {
+                const res = await fetch(`${API}/api/users`);
+                if (res.ok) {
+                    allUsers = await res.json();
+                    document.getElementById('statTotalUsers').textContent = allUsers.length;
+                    document.getElementById('statActiveUsers').textContent = allUsers.length;
+                    renderTable(allUsers);
+                }
+            } catch (_) {
+                document.getElementById('participantsTableBody').innerHTML =
+                    `<div style="padding:24px;text-align:center;color:var(--danger);">⚠ Không tải được danh sách</div>`;
+            }
+        }
+
+        async function loadParticipants() {
+            const code = document.getElementById('ptRoomFilter').value;
+            if (!code) { renderTable(allUsers); return; }
+            try {
+                const res = await fetch(`${API}/api/rooms/${code}/members`);
+                if (!res.ok) throw new Error();
+                const members = await res.json();
+                // Ghép thông tin user
+                const userIds = new Set(members.map(m => m.user_id));
+                const filtered = allUsers.filter(u => userIds.has(u.id));
+                document.getElementById('ptStats').textContent = `${filtered.length} thành viên trong phòng ${code}`;
+                renderTable(filtered, members);
+            } catch (_) {
+                Toast.error('Lỗi', 'Không tải được thành viên phòng');
+            }
+        }
+
+        function renderTable(users, memberships = []) {
+            const q = document.getElementById('searchParticipant').value.toLowerCase();
+            const filtered = q ? users.filter(u =>
+                u.full_name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+            ) : users;
+
+            if (filtered.length === 0) {
+                document.getElementById('participantsTableBody').innerHTML =
+                    `<div class="empty-state" style="padding:30px;"><div class="empty-icon">👥</div><h4>Không tìm thấy</h4></div>`;
+                return;
+            }
+
+            document.getElementById('participantsTableBody').innerHTML = filtered.map(u => {
+                const membership = memberships.find(m => m.user_id === u.id);
+                const isActive = membership ? membership.is_active : true;
+                return `
+        <div class="pt-row">
+          <div class="pt-name-cell">
+            <div class="avatar avatar-sm">${(u.full_name || 'U').charAt(0).toUpperCase()}</div>
+            <div>
+              <div class="pt-name">${esc(u.full_name)}</div>
+              <div class="pt-email">${esc(u.email)}</div>
+            </div>
+          </div>
+          <div class="pt-cell">${u.speaking_language || '—'}</div>
+          <div class="pt-cell">${u.listening_language || '—'}</div>
+          <div class="pt-cell">
+            <span class="badge ${isActive ? 'badge-success' : 'badge-gray'}">${isActive ? 'Active' : 'Inactive'}</span>
+          </div>
+          <div class="pt-actions">
+            <button class="btn-icon" title="Xem chi tiết" onclick="showUserDetail(${u.id})">👁</button>
+            <a class="btn-icon" title="Vào phòng cùng" href="lobby.html" style="text-decoration:none;">🚪</a>
+          </div>
+        </div>
+      `;
+            }).join('');
+        }
+
+        function filterParticipants() {
+            const code = document.getElementById('ptRoomFilter').value;
+            renderTable(allUsers);
+        }
+
+        async function showUserDetail(userId) {
+            const user = allUsers.find(u => u.id === userId);
+            if (!user) return;
+            document.getElementById('modalUserDetailBody').innerHTML = `
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div class="avatar avatar-lg">${(user.full_name || 'U').charAt(0).toUpperCase()}</div>
+        <div>
+          <div style="font-size:1.1rem;font-weight:600;">${esc(user.full_name)}</div>
+          <div style="font-size:.82rem;color:var(--gray-500);">${esc(user.email)}</div>
+        </div>
+      </div>
+      <div class="summary-stat-row"><span class="summary-stat-label">ID</span><span class="summary-stat-value">${user.id}</span></div>
+      <div class="summary-stat-row"><span class="summary-stat-label">Ngôn ngữ nói</span><span class="summary-stat-value">${user.speaking_language}</span></div>
+      <div class="summary-stat-row"><span class="summary-stat-label">Ngôn ngữ nghe</span><span class="summary-stat-value">${user.listening_language}</span></div>
+      <div class="summary-stat-row"><span class="summary-stat-label">Ngày tạo</span><span class="summary-stat-value">${new Date(user.created_at).toLocaleDateString('vi-VN')}</span></div>
+    `;
+            openModal('modalUserDetail');
+        }
+
+        function handleResize() {
+            const btn = document.getElementById('btnSidebarToggle');
+            if (btn) btn.style.display = window.innerWidth < 768 ? 'flex' : 'none';
+        }
+
+        initParticipants();
+    </script>
+</body>
+
+</html>

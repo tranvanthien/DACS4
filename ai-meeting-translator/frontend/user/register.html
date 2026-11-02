@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<link rel="icon" href="../favicon.ico"/>
+<title>Đăng ký — LinguaMeet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --emerald:#10b981;
+  --emerald2:#059669;
+  --indigo:#6366f1;
+  --violet:#8b5cf6;
+  --bg:#0a0e1a;
+  --border:rgba(255,255,255,.08);
+  --text:#f1f5f9;
+  --muted:rgba(255,255,255,.45);
+  --dim:rgba(255,255,255,.22);
+}
+
+html,body{height:100%;font-family:'Inter',sans-serif;background:var(--bg);color:var(--text)}
+
+/* ════ LAYOUT ════ */
+.page{display:flex;min-height:100vh}
+
+/* ── LEFT panel ── */
+.panel-left{
+  flex:1;position:relative;overflow:hidden;
+  display:flex;flex-direction:column;justify-content:center;
+  padding:60px 56px;
+}
+
+.panel-left::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 65% 55% at 85% 15%, rgba(16,185,129,.5) 0%, transparent 60%),
+    radial-gradient(ellipse 55% 45% at 10% 80%, rgba(99,102,241,.4) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 35% at 50% 50%, rgba(139,92,246,.2) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 40% at 20% 15%, rgba(6,182,212,.2) 0%, transparent 55%),
+    #060c1a;
+  z-index:0;
+}
+
+.panel-left::after{
+  content:'';position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(16,185,129,.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16,185,129,.06) 1px, transparent 1px);
+  background-size:52px 52px;z-index:0;
+  mask-image:radial-gradient(ellipse 85% 85% at 50% 50%, #000 40%, transparent 100%);
+}
+
+.panel-left>*{position:relative;z-index:1}
+
+/* orbs */
+.orb{position:absolute;border-radius:50%;filter:blur(72px);opacity:.5;animation:drift 11s ease-in-out infinite}
+.o1{width:360px;height:360px;background:#10b981;top:-100px;right:-80px;animation-delay:0s}
+.o2{width:260px;height:260px;background:#6366f1;bottom:-60px;left:-50px;animation-delay:-5s}
+.o3{width:160px;height:160px;background:#f59e0b;top:55%;left:55%;animation-delay:-8s}
+
+@keyframes drift{
+  0%,100%{transform:translate(0,0) scale(1)}
+  33%{transform:translate(-14px,16px) scale(1.05)}
+  66%{transform:translate(12px,-10px) scale(.97)}
+}
+
+/* steps showcase */
+.steps-title{
+  font-size:.72rem;font-weight:700;color:var(--emerald);
+  letter-spacing:.1em;text-transform:uppercase;margin-bottom:20px;
+  display:flex;align-items:center;gap:8px;
+}
+.steps-title::before{content:'';width:24px;height:2px;background:var(--emerald);border-radius:2px}
+
+.hero-title{font-size:2.4rem;font-weight:800;line-height:1.2;letter-spacing:-.04em;margin-bottom:18px}
+.hero-title .grad{
+  background:linear-gradient(135deg,#34d399 0%,#a5b4fc 60%,#34d399 100%);
+  background-size:200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  animation:shimmer 4s linear infinite;
+}
+@keyframes shimmer{0%{background-position:0%}100%{background-position:200%}}
+
+.hero-desc{font-size:.93rem;color:rgba(255,255,255,.58);line-height:1.72;max-width:400px;margin-bottom:44px}
+
+/* feature list */
+.feat-list{display:flex;flex-direction:column;gap:14px}
+.feat-item{
+  display:flex;align-items:center;gap:14px;
+  background:rgba(255,255,255,.05);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:14px;padding:13px 16px;
+  backdrop-filter:blur(8px);
+  transition:background .2s,border-color .2s;
+}
+.feat-item:hover{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25)}
+.feat-icon{
+  width:38px;height:38px;border-radius:10px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+}
+.feat-icon.g{background:linear-gradient(135deg,rgba(16,185,129,.25),rgba(16,185,129,.1));border:1px solid rgba(16,185,129,.25)}
+.feat-icon.p{background:linear-gradient(135deg,rgba(139,92,246,.25),rgba(139,92,246,.1));border:1px solid rgba(139,92,246,.25)}
+.feat-icon.b{background:linear-gradient(135deg,rgba(59,130,246,.25),rgba(59,130,246,.1));border:1px solid rgba(59,130,246,.25)}
+.feat-icon.y{background:linear-gradient(135deg,rgba(245,158,11,.25),rgba(245,158,11,.1));border:1px solid rgba(245,158,11,.25)}
+.feat-text strong{display:block;font-size:.87rem;font-weight:600;color:var(--text);margin-bottom:2px}
+.feat-text span{font-size:.76rem;color:var(--muted)}
+
+/* ── RIGHT panel ── */
+.panel-right{
+  width:500px;display:flex;align-items:center;justify-content:center;
+  padding:40px 48px;
+  background:rgba(10,14,26,.75);
+  border-left:1px solid var(--border);
+  overflow-y:auto;
+}
+
+.form-card{width:100%;max-width:380px;padding:8px 0}
+
+/* brand */
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:32px}
+.brand-icon{
+  width:40px;height:40px;border-radius:11px;
+  background:linear-gradient(135deg,var(--emerald),var(--emerald2));
+  display:flex;align-items:center;justify-content:center;font-size:1.2rem;
+  box-shadow:0 4px 16px rgba(16,185,129,.4);flex-shrink:0;
+}
+.brand-name{font-size:1.1rem;font-weight:700;letter-spacing:-.02em}
+.brand-tag{font-size:.7rem;color:var(--muted);margin-top:1px}
+
+/* heading */
+.form-head{margin-bottom:24px}
+.form-head h2{font-size:1.55rem;font-weight:800;letter-spacing:-.03em;margin-bottom:5px}
+.form-head p{font-size:.83rem;color:var(--muted)}
+
+/* progress bar */
+.progress-wrap{margin-bottom:28px}
+.progress-label{display:flex;justify-content:space-between;margin-bottom:8px}
+.progress-label span{font-size:.72rem;font-weight:600;color:var(--muted)}
+.progress-label .prog-val{color:var(--emerald)}
+.progress-track{height:4px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--emerald),#34d399);border-radius:4px;transition:width .4s cubic-bezier(.4,0,.2,1);width:0%}
+
+/* form grid */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* form group */
+.fg{margin-bottom:14px}
+
+.fl{
+  display:block;font-size:.72rem;font-weight:700;
+  color:var(--muted);margin-bottom:6px;
+  letter-spacing:.07em;text-transform:uppercase;
+}
+
+.iw{position:relative}
+
+.fc{
+  width:100%;
+  background:rgba(255,255,255,.05);
+  border:1.5px solid rgba(255,255,255,.09);
+  color:var(--text);border-radius:12px;
+  padding:11px 15px;font-size:.89rem;font-family:inherit;
+  outline:none;
+  transition:border-color .2s,background .2s,box-shadow .2s;
+  appearance:none;-webkit-appearance:none;
+}
+.fc::placeholder{color:var(--dim)}
+.fc:focus{
+  border-color:rgba(16,185,129,.65);
+  background:rgba(16,185,129,.06);
+  box-shadow:0 0 0 4px rgba(16,185,129,.13);
+}
+.iw .fc{padding-right:46px}
+
+/* select arrow */
+select.fc{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='rgba(255,255,255,.35)' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:18px;
+  padding-right:38px;cursor:pointer;
+}
+select.fc option{background:#111827;color:#f1f5f9}
+
+/* eye toggle */
+.eye{
+  position:absolute;right:13px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;font-size:.92rem;
+  color:var(--dim);padding:4px;line-height:1;transition:color .15s;
+}
+.eye:hover{color:rgba(255,255,255,.75)}
+
+/* password strength */
+.pwd-meter{margin-top:7px}
+.meter-bars{display:flex;gap:4px;margin-bottom:5px}
+.mb{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.1);transition:background .3s}
+.meter-label{font-size:.7rem;color:var(--dim);transition:color .3s}
+
+/* match indicator */
+.match-hint{font-size:.71rem;margin-top:5px;display:flex;align-items:center;gap:5px;color:var(--dim)}
+
+/* error */
+.err-box{
+  display:none;align-items:center;gap:8px;
+  background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.25);
+  color:#fca5a5;border-radius:11px;padding:10px 14px;
+  font-size:.8rem;margin-bottom:14px;
+}
+
+/* divider */
+.divider{display:flex;align-items:center;gap:10px;margin:18px 0;color:rgba(255,255,255,.18);font-size:.72rem}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
+
+/* submit */
+.sbtn{
+  width:100%;padding:13px;border:none;border-radius:12px;
+  font-size:.92rem;font-weight:700;font-family:inherit;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+  transition:all .22s;position:relative;overflow:hidden;
+  background:linear-gradient(135deg,var(--emerald),var(--emerald2));
+  color:#fff;box-shadow:0 4px 20px rgba(16,185,129,.35);
+}
+.sbtn::after{content:'';position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.11),transparent);pointer-events:none}
+.sbtn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 28px rgba(16,185,129,.45)}
+.sbtn:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
+
+.spin{
+  width:16px;height:16px;border:2px solid rgba(255,255,255,.3);
+  border-top-color:#fff;border-radius:50%;animation:spin .65s linear infinite;flex-shrink:0;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* footer */
+.foot{text-align:center;margin-top:20px;font-size:.8rem;color:var(--muted)}
+.foot a{color:#34d399;text-decoration:none;font-weight:600;transition:color .15s}
+.foot a:hover{color:#6ee7b7}
+
+.terms{text-align:center;margin-top:13px;font-size:.7rem;color:var(--dim);line-height:1.55}
+
+/* toast */
+#tc{position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px}
+.toast{
+  display:flex;align-items:flex-start;gap:10px;
+  background:rgba(17,24,39,.97);backdrop-filter:blur(14px);
+  border:1px solid var(--border);border-radius:12px;
+  padding:12px 16px;font-size:.83rem;color:#e2e8f0;
+  min-width:260px;max-width:360px;box-shadow:0 8px 28px rgba(0,0,0,.5);
+  animation:tin .3s ease;
+}
+.toast.out{animation:tout .3s ease forwards}
+@keyframes tin{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+@keyframes tout{from{opacity:1;transform:none}to{opacity:0;transform:translateX(18px)}}
+.toast.t-ok{border-color:rgba(16,185,129,.35)}
+.t-title{font-weight:700}
+.t-close{background:none;border:none;cursor:pointer;color:var(--muted);font-size:.85rem;margin-left:auto;flex-shrink:0}
+
+/* responsive */
+@media(max-width:960px){.panel-left{display:none}.panel-right{width:100%;border-left:none}}
+@media(max-width:520px){.panel-right{padding:28px 18px}.form-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="tc"></div>
+
+<div class="page">
+
+  <!-- ══ LEFT VISUAL ══ -->
+  <div class="panel-left">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+
+    <div class="steps-title">Bắt đầu miễn phí</div>
+
+    <h1 class="hero-title">
+      Chỉ mất<br/><span class="grad">30 giây</span><br/>để tham gia
+    </h1>
+
+    <p class="hero-desc">
+      Tạo tài khoản LinguaMeet ngay hôm nay và kết nối với mọi người trên toàn thế giới dù bất đồng ngôn ngữ.
+    </p>
+
+    <div class="feat-list">
+      <div class="feat-item">
+        <div class="feat-icon g">🎙️</div>
+        <div class="feat-text">
+          <strong>Nhận dạng giọng nói Whisper STT</strong>
+          <span>Chính xác, hỗ trợ hơn 50 ngôn ngữ</span>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon p">⚡</div>
+        <div class="feat-text">
+          <strong>Dịch thuật dưới 0.5 giây</strong>
+          <span>AI dịch thời gian thực, không bị trễ</span>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon b">🔒</div>
+        <div class="feat-text">
+          <strong>Phòng họp bảo mật</strong>
+          <span>Mã hóa đầu cuối, dữ liệu riêng tư</span>
+        </div>
+      </div>
+      <div class="feat-item">
+        <div class="feat-icon y">🆓</div>
+        <div class="feat-text">
+          <strong>Hoàn toàn miễn phí</strong>
+          <span>Không cần thẻ tín dụng, dùng ngay</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RIGHT FORM ══ -->
+  <div class="panel-right">
+    <div class="form-card">
+
+      <!-- brand -->
+      <div class="brand">
+        <div class="brand-icon">🌐</div>
+        <div>
+          <div class="brand-name">LinguaMeet</div>
+          <div class="brand-tag">Miễn phí · Không cần thẻ tín dụng</div>
+        </div>
+      </div>
+
+      <!-- heading -->
+      <div class="form-head">
+        <h2>Tạo tài khoản mới</h2>
+        <p>Điền thông tin bên dưới để bắt đầu ngay</p>
+      </div>
+
+      <!-- progress -->
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>Tiến trình</span>
+          <span class="prog-val" id="progVal">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progFill"></div>
+        </div>
+      </div>
+
+      <form id="regForm" onsubmit="doRegister(event)" novalidate>
+
+        <!-- Name -->
+        <div class="fg">
+          <label class="fl">Họ và tên</label>
+          <input id="fName" type="text" class="fc" placeholder="Nguyễn Văn A" required autofocus oninput="updateProgress()"/>
+        </div>
+
+        <!-- Email -->
+        <div class="fg">
+          <label class="fl">Email</label>
+          <input id="fEmail" type="email" class="fc" placeholder="ban@email.com" required oninput="updateProgress()"/>
+        </div>
+
+        <!-- Password -->
+        <div class="fg">
+          <label class="fl">Mật khẩu</label>
+          <div class="iw">
+            <input id="fPwd" type="password" class="fc" placeholder="Ít nhất 6 ký tự" required oninput="onPwdInput()"/>
+            <button type="button" class="eye" onclick="togglePwd('fPwd',this)">👁</button>
+          </div>
+          <div class="pwd-meter">
+            <div class="meter-bars">
+              <div class="mb" id="mb1"></div>
+              <div class="mb" id="mb2"></div>
+              <div class="mb" id="mb3"></div>
+              <div class="mb" id="mb4"></div>
+            </div>
+            <div class="meter-label" id="meterLbl">Nhập mật khẩu</div>
+          </div>
+        </div>
+
+        <!-- Confirm password -->
+        <div class="fg">
+          <label class="fl">Xác nhận mật khẩu</label>
+          <div class="iw">
+            <input id="fPwd2" type="password" class="fc" placeholder="Nhập lại mật khẩu" required oninput="onPwd2Input()"/>
+            <button type="button" class="eye" onclick="togglePwd('fPwd2',this)">👁</button>
+          </div>
+          <div class="match-hint" id="matchHint"></div>
+        </div>
+
+        <!-- Languages -->
+        <div class="form-row">
+          <div class="fg">
+            <label class="fl">Tôi nói</label>
+            <select id="fSpeak" class="fc" onchange="updateProgress()"></select>
+          </div>
+          <div class="fg">
+            <label class="fl">Tôi nghe</label>
+            <select id="fListen" class="fc"></select>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div id="regErr" class="err-box">
+          <span>⚠️</span><span id="regErrMsg"></span>
+        </div>
+
+        <!-- Submit -->
+        <button type="submit" id="btnReg" class="sbtn">
+          <span id="spin" class="spin" style="display:none"></span>
+          ✨ Tạo tài khoản
+        </button>
+
+      </form>
+
+      <div class="foot">
+        Đã có tài khoản? <a href="login.html" id="loginLink">Đăng nhập ngay →</a>
+      </div>
+
+      <div class="terms">
+        Bằng cách đăng ký, bạn đồng ý với<br/>Điều khoản dịch vụ và Chính sách bảo mật của LinguaMeet.
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="user.js"></script>
+<script>
+/* ── init ── */
+const qp  = new URLSearchParams(location.search);
+const rdr = qp.get('redirect');
+if (U.load()) location.href = rdr || 'home.html';
+if (rdr) {
+  const l = document.getElementById('loginLink');
+  if (l) l.href = 'login.html?redirect=' + encodeURIComponent(rdr);
+}
+
+async function initReg() {
+  const langs = await loadLangs();
+  const opts  = langs.map(l => `<option value="${l.code}">${l.flag||''} ${l.name}</option>`).join('');
+  document.getElementById('fSpeak').innerHTML  = opts;
+  document.getElementById('fListen').innerHTML = opts;
+  // default listen = English
+  const listenEl = document.getElementById('fListen');
+  if ([...listenEl.options].some(o => o.value === 'en')) listenEl.value = 'en';
+}
+
+/* ── progress ── */
+function updateProgress() {
+  const name  = document.getElementById('fName').value.trim();
+  const email = document.getElementById('fEmail').value.trim();
+  const pwd   = document.getElementById('fPwd').value;
+  const pwd2  = document.getElementById('fPwd2').value;
+
+  let score = 0;
+  if (name)                  score++;
+  if (email && email.includes('@')) score++;
+  if (pwd.length >= 6)       score++;
+  if (pwd && pwd === pwd2)   score++;
+
+  const pct = Math.round((score / 4) * 100);
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progVal').textContent   = pct + '%';
+}
+
+/* ── password strength ── */
+const STRENGTH_CFG = [
+  { color:'#ef4444', label:'Rất yếu'  },
+  { color:'#f59e0b', label:'Trung bình'},
+  { color:'#10b981', label:'Tốt'      },
+  { color:'#6366f1', label:'Mạnh'     },
+];
+
+function onPwdInput() {
+  const v = document.getElementById('fPwd').value;
+  let s = 0;
+  if (v.length >= 6)  s++;
+  if (v.length >= 10) s++;
+  if (/[A-Z]/.test(v) && /\d/.test(v)) s++;
+  if (/[^a-zA-Z0-9]/.test(v)) s++;
+
+  const cfg = STRENGTH_CFG[Math.max(s - 1, 0)];
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById('mb' + i).style.background =
+      i <= s ? cfg.color : 'rgba(255,255,255,.1)';
+  }
+  const lbl = document.getElementById('meterLbl');
+  lbl.textContent = v.length ? cfg.label : 'Nhập mật khẩu';
+  lbl.style.color = v.length ? cfg.color : 'var(--dim)';
+  updateProgress();
+  onPwd2Input();
+}
+
+function onPwd2Input() {
+  const p1  = document.getElementById('fPwd').value;
+  const p2  = document.getElementById('fPwd2').value;
+  const el  = document.getElementById('matchHint');
+  if (!p2) { el.innerHTML = ''; return; }
+  if (p1 === p2) {
+    el.innerHTML = '<span style="color:#10b981">✓</span> <span style="color:#10b981">Mật khẩu khớp</span>';
+  } else {
+    el.innerHTML = '<span style="color:#f87171">✗</span> <span style="color:#f87171">Mật khẩu chưa khớp</span>';
+  }
+  updateProgress();
+}
+
+/* ── toggle pwd ── */
+function togglePwd(id, btn) {
+  const el = document.getElementById(id);
+  if (el.type === 'password') { el.type = 'text'; btn.textContent = '🙈'; }
+  else { el.type = 'password'; btn.textContent = '👁'; }
+}
+
+/* ── toast ── */
+function showToast(type, title, msg = '', ms = 4000) {
+  const c  = document.getElementById('tc');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${type==='t-ok'?'✅':'❌'}</span>
+    <div style="flex:1"><div class="t-title">${title}</div>${msg?`<div style="font-size:.77rem;opacity:.7;margin-top:3px">${msg}</div>`:''}</div>
+    <button class="t-close" onclick="this.closest('.toast').remove()">✕</button>`;
+  c.appendChild(el);
+  if (ms > 0) setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 300); }, ms);
+}
+
+/* ── register ── */
+async function doRegister(e) {
+  e.preventDefault();
+  const name  = document.getElementById('fName').value.trim();
+  const email = document.getElementById('fEmail').value.trim();
+  const pwd   = document.getElementById('fPwd').value;
+  const pwd2  = document.getElementById('fPwd2').value;
+  const speak = document.getElementById('fSpeak').value;
+  const listen= document.getElementById('fListen').value;
+  const eb    = document.getElementById('regErr');
+  const em    = document.getElementById('regErrMsg');
+
+  eb.style.display = 'none';
+
+  const err = (msg) => { em.textContent = msg; eb.style.display = 'flex'; };
+
+  if (!name)          return err('Vui lòng nhập họ tên');
+  if (!email)         return err('Vui lòng nhập email hợp lệ');
+  if (pwd.length < 6) return err('Mật khẩu phải có ít nhất 6 ký tự');
+  if (pwd !== pwd2)   return err('Mật khẩu xác nhận không khớp');
+
+  document.getElementById('spin').style.display    = 'inline-block';
+  document.getElementById('btnReg').disabled        = true;
+
+  try {
+    const res  = await fetch(API + '/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ full_name: name, email, password: pwd, speaking_language: speak, listening_language: listen }),
+    });
+    const data = await res.json();
+    if (!res.ok) return err(data.detail || 'Đăng ký thất bại');
+
+    showToast('t-ok', 'Đăng ký thành công! 🎉', 'Chào mừng bạn đến với LinguaMeet');
+    setTimeout(() => {
+      location.href = rdr ? ('login.html?redirect=' + encodeURIComponent(rdr)) : 'login.html';
+    }, 1500);
+  } catch (_) {
+    err('Không kết nối được máy chủ. Hãy thử lại.');
+  } finally {
+    document.getElementById('spin').style.display = 'none';
+    document.getElementById('btnReg').disabled     = false;
+  }
+}
+
+initReg();
+</script>
+</body>
+</html>

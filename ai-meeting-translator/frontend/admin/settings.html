@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Cài đặt — Admin LinguaMeet</title>
+    <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <div class="admin-main">
+            <header class="admin-topbar" id="adminTopbar"></header>
+            <div class="admin-content">
+
+                <div class="page-hd" style="margin-bottom:20px;">
+                    <div>
+                        <h2>⚙️ Cài đặt Quản trị & Hệ thống</h2>
+                        <p style="font-size:.8rem;color:var(--g500);margin-top:3px;">
+                            Xem thông tin phiên đăng nhập quản trị, đổi mật khẩu và tra cứu thông số môi trường backend
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Admin Profile Card -->
+                <div class="settings-section">
+                    <div class="settings-head">
+                        <h3>👤 Thông tin Quản trị viên hiện tại</h3>
+                    </div>
+                    <div class="settings-body">
+                        <div id="adminProfileInfo" style="margin-bottom:12px;"></div>
+                        <div style="padding:10px 14px;background:#eef2ff;border:1px solid #6366f1;border-radius:var(--r);font-size:.78rem;color:#3730a3;">
+                            🛡️ <b>Bảo mật hoạt động:</b> Tài khoản của bạn đã được xác thực có quyền <code>is_admin = True</code> trên database MySQL và mã bí mật <code>X-Admin-Key</code> hợp lệ.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Change Password Section -->
+                <div class="settings-section">
+                    <div class="settings-head">
+                        <h3>🔐 Đổi Mật Khẩu Quản trị viên</h3>
+                    </div>
+                    <div class="settings-body">
+                        <form onsubmit="handleChangePassword(event)" style="max-width:480px;">
+                            <div class="form-group">
+                                <label class="form-label">Mật khẩu mới</label>
+                                <input id="adminNewPwd" type="password" class="form-control" placeholder="Tối thiểu 6 ký tự" required />
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Xác nhận mật khẩu mới</label>
+                                <input id="adminConfirmPwd" type="password" class="form-control" placeholder="Nhập lại mật khẩu mới" required />
+                            </div>
+                            <div id="pwdErr" class="form-error" style="display:none;margin-bottom:10px;"></div>
+                            <button type="submit" class="btn btn-primary" id="btnSavePwd">
+                                <span id="pwdSpin" class="spin spin-sm spin-white" style="display:none;margin-right:4px;"></span>
+                                💾 Cập nhật mật khẩu mới
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- System Config Readonly Section -->
+                <div class="settings-section">
+                    <div class="settings-head">
+                        <h3>🔧 Cấu hình Hạ tầng & Môi trường</h3>
+                        <button class="btn btn-ghost btn-sm" onclick="loadSystemConfig()">🔄 Tải lại</button>
+                    </div>
+                    <div id="configBody" class="settings-body">
+                        <div style="text-align:center;padding:20px;"><span class="spin"></span> Đang nạp thông số...</div>
+                    </div>
+                </div>
+
+                <!-- Danger Zone -->
+                <div class="settings-section" style="border:1px solid #fca5a5;">
+                    <div class="settings-head" style="background:#fff5f5;border-bottom-color:#fca5a5;">
+                        <h3 style="color:var(--err);">⛔ Phiên làm việc</h3>
+                    </div>
+                    <div class="settings-body">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+                            <div>
+                                <div style="font-size:.88rem;font-weight:600;color:var(--g800);">Đăng xuất khỏi Admin Portal</div>
+                                <div style="font-size:.74rem;color:var(--g500);">Xóa phiên làm việc và mã xác thực khỏi trình duyệt này.</div>
+                            </div>
+                            <button class="btn btn-danger btn-sm" onclick="adminLogout()">🚪 Đăng xuất ngay</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        let currentAdmin = null;
+
+        async function initSettings() {
+            currentAdmin = A.require();
+            if (!currentAdmin) return;
+            renderSidebar('settings.html');
+            renderTopbar('Cài đặt Quản trị');
+
+            renderAdminProfile();
+            await loadSystemConfig();
+        }
+
+        function renderAdminProfile() {
+            const el = document.getElementById('adminProfileInfo');
+            const init = (currentAdmin.full_name || 'A').charAt(0).toUpperCase();
+            el.innerHTML = `
+                <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px;">
+                    <div class="cell-av" style="width:48px;height:48px;font-size:1.2rem;">${init}</div>
+                    <div>
+                        <div style="font-size:1rem;font-weight:700;color:var(--g900);">${xe(currentAdmin.full_name || 'Admin')}</div>
+                        <div style="font-size:.82rem;color:var(--g500);">${xe(currentAdmin.email)}</div>
+                    </div>
+                    <span class="badge badge-ok" style="margin-left:auto;">Quản trị viên cấp cao</span>
+                </div>
+            `;
+        }
+
+        async function handleChangePassword(e) {
+            e.preventDefault();
+            const p1 = document.getElementById('adminNewPwd').value;
+            const p2 = document.getElementById('adminConfirmPwd').value;
+            const errEl = document.getElementById('pwdErr');
+            const spin = document.getElementById('pwdSpin');
+            const btn = document.getElementById('btnSavePwd');
+            errEl.style.display = 'none';
+
+            if (p1 !== p2) {
+                errEl.textContent = 'Mật khẩu xác nhận không khớp!';
+                errEl.style.display = 'block';
+                return;
+            }
+            if (p1.length < 6) {
+                errEl.textContent = 'Mật khẩu phải tối thiểu 6 ký tự!';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            spin.style.display = 'inline-block';
+            btn.disabled = true;
+
+            try {
+                // Gọi API đổi mật khẩu thật
+                await apiPut(`/api/admin/users/${currentAdmin.id}/password`, { new_password: p1 });
+                T.ok('Thành công', 'Đã đổi mật khẩu quản trị viên.');
+                document.getElementById('adminNewPwd').value = '';
+                document.getElementById('adminConfirmPwd').value = '';
+            } catch (err) {
+                errEl.textContent = err.message || 'Lỗi đổi mật khẩu';
+                errEl.style.display = 'block';
+            } finally {
+                spin.style.display = 'none';
+                btn.disabled = false;
+            }
+        }
+
+        async function loadSystemConfig() {
+            const el = document.getElementById('configBody');
+            try {
+                const [health, overview] = await Promise.all([
+                    apiGet('/api/health'),
+                    apiGet('/api/admin/stats/overview')
+                ]);
+
+                const sys = overview.system || {};
+
+                el.innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item"><div class="dl">Tên ứng dụng</div><div class="dv"><b>${xe(sys.app_name)}</b></div></div>
+                        <div class="detail-item"><div class="dl">Trạng thái API</div><div class="dv"><span class="badge badge-ok">Status: ${health.status}</span></div></div>
+                        <div class="detail-item"><div class="dl">Mô hình Whisper STT</div><div class="dv"><code>${xe(sys.whisper_model)}</code></div></div>
+                        <div class="detail-item"><div class="dl">Bộ xử lý dịch thuật</div><div class="dv"><code>${xe(sys.translation_provider)}</code></div></div>
+                        <div class="detail-item"><div class="dl">Nhà cung cấp TTS</div><div class="dv"><code>${xe(sys.tts_provider)}</code></div></div>
+                        <div class="detail-item"><div class="dl">Tổng người dùng DB</div><div class="dv">${overview.users.total} tài khoản</div></div>
+                        <div class="detail-item"><div class="dl">Tổng số cuộc họp</div><div class="dv">${overview.rooms.total} cuộc họp</div></div>
+                        <div class="detail-item"><div class="dl">Máy chủ Backend URL</div><div class="dv"><span class="cell-mono">${API || window.location.origin}</span></div></div>
+                    </div>
+                `;
+            } catch (e) {
+                el.innerHTML = `<div style="color:var(--err);font-size:.8rem;">Lỗi nạp cấu hình: ${xe(e.message)}</div>`;
+            }
+        }
+
+        initSettings();
+    </script>
+</body>
+
+</html>

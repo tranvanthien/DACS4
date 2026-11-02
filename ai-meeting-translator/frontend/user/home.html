@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Trang chủ — LinguaMeet</title>
+    <link rel="stylesheet" href="user.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-shell">
+        <nav class="topnav" id="topnav"></nav>
+
+        <div style="max-width:1180px;margin:24px auto 48px;padding:0 24px;width:100%;">
+
+            <!-- ══════════════════════════════════════════════════════════
+                 KHU VỰC 1: HERO TẬP TRUNG HÀNH ĐỘNG
+            ══════════════════════════════════════════════════════════ -->
+            <div class="home-hero-clean">
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="badge badge-primary">🌐 Phiên dịch AI hai chiều</span>
+                </div>
+
+                <div class="hero-clean-title">
+                    <span id="timeGreetingPrefix">Xin chào,</span> 
+                    <span id="heroName" class="grad-text">bạn</span> 
+                    <span id="timeGreetingIcon">👋</span>
+                </div>
+
+                <p class="hero-clean-sub">
+                    Bắt đầu cuộc họp trực tuyến đa ngôn ngữ. Hệ thống tự động nhận diện giọng nói, hiển thị phụ đề song ngữ và dịch thuật tức thì.
+                </p>
+
+                <!-- Thanh hành động chính: Tạo phòng & Nhập mã vào phòng -->
+                <div class="hero-clean-actions">
+                    <button class="btn-clean-create" onclick="openModal('modalCreate')">
+                        ➕ Cuộc họp mới
+                    </button>
+
+                    <div class="hero-clean-join">
+                        <span style="font-size:1rem;color:var(--text-sub);margin-right:6px;">⌨️</span>
+                        <input id="heroJoinInput" placeholder="Nhập mã phòng (VD: ABC123)" 
+                               maxlength="20" autocomplete="off"
+                               oninput="this.value=this.value.toUpperCase()" 
+                               onkeydown="if(event.key==='Enter')quickEnterRoom()" />
+                        <button onclick="quickEnterRoom()">Vào phòng →</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══════════════════════════════════════════════════════════
+                 KHU VỰC 2: BỐ CỤC 2 CỘT
+                 - Cột Trái: Cuộc họp của bạn (Bộ lọc, Tìm kiếm, Danh sách)
+                 - Cột Phải: Cài đặt cuộc họp (Mục riêng biệt)
+            ══════════════════════════════════════════════════════════ -->
+            <div class="home-clean-layout">
+
+                <!-- ── CỘT TRÁI: CUỘC HỌP CỦA BẠN ── -->
+                <div>
+                    <!-- Header thanh công cụ -->
+                    <div class="clean-section-hd">
+                        <div class="clean-section-title">
+                            <span>📹 Cuộc họp gần đây</span>
+                            <span class="badge badge-primary" id="badgeRoomCount">0</span>
+                        </div>
+
+                        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                            <!-- Bộ lọc trạng thái -->
+                            <div class="meetings-filter-tabs">
+                                <button class="m-tab active" id="tabAll" onclick="setMeetingFilter('all')">Tất cả</button>
+                                <button class="m-tab" id="tabActive" onclick="setMeetingFilter('active')">Đang mở 🟢</button>
+                                <button class="m-tab" id="tabClosed" onclick="setMeetingFilter('closed')">Đã đóng</button>
+                            </div>
+
+                            <!-- Ô tìm kiếm nhanh -->
+                            <div class="meetings-search-wrap">
+                                <span class="search-icon">🔍</span>
+                                <input id="meetingSearch" placeholder="Tìm tên phòng, mã..." oninput="onSearchMeetings()" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Danh sách cuộc họp -->
+                    <div class="clean-meeting-card" id="recentList" style="min-height:280px;">
+                        <div style="padding:48px 20px;text-align:center;">
+                            <span class="spin"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── CỘT PHẢI: MỤC CÀI ĐẶT CUỘC HỌP RIÊNG BIỆT ── -->
+                <div>
+                    <div class="card" style="padding:22px;border:1px solid rgba(99,102,241,0.25);background:linear-gradient(180deg,#121829 0%,#0e1422 100%);box-shadow:var(--sh-card);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                            <span style="font-weight:700;font-size:1.02rem;color:var(--text-white);display:flex;align-items:center;gap:8px;">
+                                <span>⚙️</span> Cài đặt cuộc họp
+                            </span>
+                            <span class="badge badge-primary" style="font-size:.68rem;">AI Voice &amp; STT</span>
+                        </div>
+
+                        <div style="display:flex;flex-direction:column;gap:14px;">
+                            <!-- Tùy chọn 1: Tôi nói -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">
+                                    <span>🗣️ Ngôn ngữ bạn nói:</span>
+                                    <span style="font-size:.68rem;color:var(--text-sub);">Whisper STT</span>
+                                </label>
+                                <select id="accSpeakSelect" class="form-control" style="padding:8px 12px;font-size:0.84rem;"></select>
+                            </div>
+
+                            <!-- Tùy chọn 2: Tôi nghe -->
+                            <div class="form-group" style="margin-bottom:0;">
+                                <label class="form-label" style="display:flex;align-items:center;justify-content:space-between;">
+                                    <span>🎧 Ngôn ngữ bạn nghe:</span>
+                                    <span style="font-size:.68rem;color:var(--text-sub);">Dịch &amp; TTS</span>
+                                </label>
+                                <select id="accListenSelect" class="form-control" style="padding:8px 12px;font-size:0.84rem;"></select>
+                            </div>
+
+                            <!-- Tùy chọn 3: Giọng đọc AI toggle -->
+                            <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--r);">
+                                <div>
+                                    <div style="font-size:0.8rem;font-weight:600;color:var(--text-white);">🔊 Giọng đọc AI (TTS)</div>
+                                    <div style="font-size:0.68rem;color:var(--text-muted);">Tự động phát âm thanh câu dịch</div>
+                                </div>
+                                <span class="toggle on" id="quickTTS" onclick="this.classList.toggle('on')"></span>
+                            </div>
+
+                            <!-- Nút lưu cài đặt rõ ràng -->
+                            <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+                                <button class="btn btn-primary btn-sm w-full" id="btnSaveQuickSettings" onclick="saveLanguagePreferences()" style="padding:10px;font-weight:600;">
+                                    <span id="quickSaveSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                                    💾 Lưu cài đặt
+                                </button>
+                                <button class="btn btn-ghost btn-sm" onclick="openSettingsModal()" title="Cài đặt nâng cao" style="padding:9px 12px;">
+                                    ⚙️
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         MODAL: TẠO PHÒNG HỌP MỚI
+    ══════════════════════════════════════════════════════════ -->
+    <div id="modalCreate" class="modal-bg" onclick="if(event.target===this)closeModal('modalCreate')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3 style="display:flex;align-items:center;gap:8px;">
+                    <span>➕</span> Tạo cuộc họp mới
+                </h3>
+                <button class="x-btn" onclick="closeModal('modalCreate')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Tên cuộc họp</label>
+                    <input id="cName" class="form-control" placeholder="VD: Họp báo cáo tiến độ DACS4" autofocus 
+                           onkeydown="if(event.key==='Enter')doCreate()" />
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Ngôn ngữ tôi nói</label>
+                        <select id="cSpeak" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ngôn ngữ tôi nghe</label>
+                        <select id="cListen" class="form-control"></select>
+                    </div>
+                </div>
+                <div id="cErr" class="form-error" style="display:none;"></div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalCreate')">Hủy</button>
+                <button class="btn btn-primary" id="btnCreate" onclick="doCreate()">
+                    <span id="cSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                    Tạo phòng ngay
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         MODAL: PHÒNG ĐÃ TẠO XONG
+    ══════════════════════════════════════════════════════════ -->
+    <div id="modalCreated" class="modal-bg" onclick="if(event.target===this)closeModal('modalCreated')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3 style="display:flex;align-items:center;gap:8px;">
+                    <span>🎉</span> Phòng họp đã sẵn sàng!
+                </h3>
+                <button class="x-btn" onclick="closeModal('modalCreated')">✕</button>
+            </div>
+            <div class="modal-body" style="text-align:center;gap:14px;padding:26px 20px;">
+                <p style="font-size:.9rem;color:var(--text-muted);">Chia sẻ mã cuộc họp bên dưới để mời mọi người tham gia:</p>
+                <div style="background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);border-radius:var(--rl);padding:20px;display:flex;align-items:center;justify-content:center;gap:14px;">
+                    <span id="createdCode" style="font-family:monospace;font-size:2.2rem;font-weight:800;color:var(--cyan);letter-spacing:.15em;">—</span>
+                    <button class="btn btn-secondary btn-sm" id="btnCopyCode" onclick="copyCreatedCode(this)">
+                        📋 Sao chép
+                    </button>
+                </div>
+                <div style="font-size:.76rem;color:var(--text-sub);">
+                    Người tham gia chỉ cần nhập mã này hoặc truy cập đường dẫn để bắt đầu
+                </div>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalCreated')">Đóng</button>
+                <button class="btn btn-primary" onclick="enterCreated()">Vào phòng họp ngay →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════
+         MODAL: CÀI ĐẶT NÂNG CAO (ADVANCED SETTINGS MODAL)
+    ══════════════════════════════════════════════════════════ -->
+    <div id="modalSettings" class="modal-bg" onclick="if(event.target===this)closeModal('modalSettings')">
+        <div class="modal" style="max-width:520px;">
+            <div class="modal-head">
+                <h3 style="display:flex;align-items:center;gap:8px;">
+                    <span>⚙️</span> Cài đặt cuộc họp &amp; Ngôn ngữ
+                </h3>
+                <button class="x-btn" onclick="closeModal('modalSettings')">✕</button>
+            </div>
+
+            <!-- Tab điều hướng trong Cài đặt -->
+            <div class="settings-modal-tabs">
+                <button class="settings-tab-btn active" id="stab-lang" onclick="switchSettingsTab('lang')">
+                    🌐 Ngôn ngữ &amp; Dịch thuật
+                </button>
+                <button class="settings-tab-btn" id="stab-devices" onclick="switchSettingsTab('devices')">
+                    📹 Thiết bị &amp; Cuộc gọi
+                </button>
+            </div>
+
+            <div class="modal-body" style="padding:22px;">
+
+                <!-- PANE 1: NGÔN NGỮ -->
+                <div class="settings-pane active" id="spane-lang">
+                    <div class="form-group">
+                        <label class="form-label">🗣️ Ngôn ngữ bạn nói (Whisper STT nhận diện):</label>
+                        <select id="setSpeakSelect" class="form-control"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">🎧 Ngôn ngữ bạn nghe (Dịch thuật &amp; Đọc AI):</label>
+                        <select id="setListenSelect" class="form-control"></select>
+                    </div>
+
+                    <div class="setting-item-row">
+                        <div>
+                            <div class="setting-item-title">🔊 Tự động phát giọng đọc AI (TTS)</div>
+                            <div class="setting-item-sub">Tự động đọc to câu dịch khi có người nói trong phòng</div>
+                        </div>
+                        <span class="toggle on" id="setToggleTTS" onclick="this.classList.toggle('on')"></span>
+                    </div>
+                </div>
+
+                <!-- PANE 2: THIẾT BỊ & TÙY CHỌN PHÒNG -->
+                <div class="settings-pane" id="spane-devices">
+                    <div class="setting-item-row">
+                        <div>
+                            <div class="setting-item-title">🎤 Bật Microphone khi vào phòng</div>
+                            <div class="setting-item-sub">Mặc định mở micro khi bắt đầu cuộc họp</div>
+                        </div>
+                        <span class="toggle on" id="setToggleMic" onclick="this.classList.toggle('on')"></span>
+                    </div>
+
+                    <div class="setting-item-row">
+                        <div>
+                            <div class="setting-item-title">📷 Bật Camera khi vào phòng</div>
+                            <div class="setting-item-sub">Mặc định kích hoạt webcam khi tham gia</div>
+                        </div>
+                        <span class="toggle" id="setToggleCam" onclick="this.classList.toggle('on')"></span>
+                    </div>
+
+                    <div class="setting-item-row">
+                        <div>
+                            <div class="setting-item-title">💬 Tự động hiển thị Phụ đề song ngữ (CC)</div>
+                            <div class="setting-item-sub">Hiển thị khung phụ đề chữ ở đáy video khi có hội thoại</div>
+                        </div>
+                        <span class="toggle on" id="setToggleSub" onclick="this.classList.toggle('on')"></span>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalSettings')">Hủy</button>
+                <button class="btn btn-primary" id="btnSaveSettings" onclick="saveModalSettings()">
+                    <span id="saveSettingsSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                    💾 Lưu cài đặt
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="user.js"></script>
+    <script>
+        // ── State ─────────────────────────────────────────────────────────────
+        let user = null;
+        let langs = [];
+        let allRooms = [];
+        let currentFilter = 'all';
+        let _createdCode = '';
+
+        // ── Boot ──────────────────────────────────────────────────────────────
+        async function init() {
+            user = U.require();
+            renderNav('home.html');
+
+            setupGreeting();
+
+            // Populate hero name
+            const heroName = document.getElementById('heroName');
+            if (heroName) heroName.textContent = user.full_name || 'bạn';
+
+            // Load languages
+            langs = await loadLangs();
+            const opts = langs.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+            ['cSpeak', 'cListen', 'accSpeakSelect', 'accListenSelect', 'setSpeakSelect', 'setListenSelect'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = opts;
+            });
+
+            const defSpeak = user.speaking_language || 'vi';
+            const defListen = user.listening_language || 'en';
+            document.getElementById('cSpeak').value = defSpeak;
+            document.getElementById('cListen').value = defListen;
+            document.getElementById('accSpeakSelect').value = defSpeak;
+            document.getElementById('accListenSelect').value = defListen;
+            document.getElementById('setSpeakSelect').value = defSpeak;
+            document.getElementById('setListenSelect').value = defListen;
+
+            // Load recent meetings
+            loadRecent();
+        }
+
+        // ── Greeting ──────────────────────────────────────────────────────────
+        function setupGreeting() {
+            const h = new Date().getHours();
+            let prefix = 'Xin chào,';
+            let icon = '👋';
+            if (h >= 5 && h < 12) { prefix = 'Chào buổi sáng,'; icon = '🌅'; }
+            else if (h >= 12 && h < 18) { prefix = 'Chào buổi chiều,'; icon = '☀️'; }
+            else { prefix = 'Chào buổi tối,'; icon = '🌙'; }
+
+            document.getElementById('timeGreetingPrefix').textContent = prefix;
+            document.getElementById('timeGreetingIcon').textContent = icon;
+        }
+
+        // ── Save Settings ─────────────────────────────────────────────────────
+        async function saveLanguagePreferences() {
+            const speak = document.getElementById('accSpeakSelect').value;
+            const listen = document.getElementById('accListenSelect').value;
+            const btn = document.getElementById('btnSaveQuickSettings');
+            const spin = document.getElementById('quickSaveSpin');
+
+            btn.disabled = true;
+            spin.style.display = 'inline-block';
+
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/languages`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speak, listening_language: listen })
+                });
+
+                if (res.ok) {
+                    user.speaking_language = speak;
+                    user.listening_language = listen;
+                    U.save(user);
+
+                    document.getElementById('cSpeak').value = speak;
+                    document.getElementById('cListen').value = listen;
+                    document.getElementById('setSpeakSelect').value = speak;
+                    document.getElementById('setListenSelect').value = listen;
+
+                    T.ok('Đã lưu cài đặt', 'Ngôn ngữ cuộc họp đã được cập nhật thành công');
+                } else {
+                    T.err('Lỗi', 'Không thể lưu cài đặt vào máy chủ');
+                }
+            } catch (_) {
+                T.err('Lỗi kết nối', 'Không thể kết nối máy chủ');
+            } finally {
+                btn.disabled = false;
+                spin.style.display = 'none';
+            }
+        }
+
+        // ── Open & Manage Modal Settings ──────────────────────────────────────
+        window.openSettingsModal = function() {
+            document.getElementById('setSpeakSelect').value = user.speaking_language || 'vi';
+            document.getElementById('setListenSelect').value = user.listening_language || 'en';
+            switchSettingsTab('lang');
+            openModal('modalSettings');
+        };
+
+        function switchSettingsTab(tab) {
+            document.getElementById('stab-lang').classList.toggle('active', tab === 'lang');
+            document.getElementById('stab-devices').classList.toggle('active', tab === 'devices');
+            document.getElementById('spane-lang').classList.toggle('active', tab === 'lang');
+            document.getElementById('spane-devices').classList.toggle('active', tab === 'devices');
+        }
+
+        async function saveModalSettings() {
+            const speak = document.getElementById('setSpeakSelect').value;
+            const listen = document.getElementById('setListenSelect').value;
+
+            document.getElementById('btnSaveSettings').disabled = true;
+            document.getElementById('saveSettingsSpin').style.display = 'inline-block';
+
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/languages`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speak, listening_language: listen })
+                });
+
+                if (res.ok) {
+                    user.speaking_language = speak;
+                    user.listening_language = listen;
+                    U.save(user);
+
+                    document.getElementById('cSpeak').value = speak;
+                    document.getElementById('cListen').value = listen;
+                    document.getElementById('accSpeakSelect').value = speak;
+                    document.getElementById('accListenSelect').value = listen;
+
+                    closeModal('modalSettings');
+                    T.ok('Đã lưu cài đặt', 'Cài đặt cuộc họp và ngôn ngữ đã được cập nhật thành công');
+                } else {
+                    T.err('Lỗi', 'Không thể lưu cài đặt vào máy chủ');
+                }
+            } catch (_) {
+                T.err('Lỗi kết nối', 'Không thể kết nối máy chủ');
+            } finally {
+                document.getElementById('btnSaveSettings').disabled = false;
+                document.getElementById('saveSettingsSpin').style.display = 'none';
+            }
+        }
+
+        // ── Load Recent Meetings ──────────────────────────────────────────────
+        async function loadRecent() {
+            const el = document.getElementById('recentList');
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/rooms`);
+                if (!res.ok) throw new Error();
+                allRooms = await res.json();
+
+                const badge = document.getElementById('badgeRoomCount');
+                if (badge) badge.textContent = allRooms.length;
+
+                renderMeetingList();
+            } catch (_) {
+                el.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">⚠️</div>
+                        <h4>Không tải được danh sách</h4>
+                        <p>Kiểm tra kết nối máy chủ backend</p>
+                    </div>`;
+            }
+        }
+
+        function setMeetingFilter(f) {
+            currentFilter = f;
+            document.getElementById('tabAll').classList.toggle('active', f === 'all');
+            document.getElementById('tabActive').classList.toggle('active', f === 'active');
+            document.getElementById('tabClosed').classList.toggle('active', f === 'closed');
+            renderMeetingList();
+        }
+
+        function onSearchMeetings() {
+            renderMeetingList();
+        }
+
+        function renderMeetingList() {
+            const el = document.getElementById('recentList');
+            const q = (document.getElementById('meetingSearch')?.value || '').trim().toLowerCase();
+
+            let list = allRooms.filter(r => {
+                if (currentFilter === 'active' && !r.is_active) return false;
+                if (currentFilter === 'closed' && r.is_active) return false;
+                if (q) {
+                    const matchName = (r.room_name || '').toLowerCase().includes(q);
+                    const matchCode = (r.room_code || '').toLowerCase().includes(q);
+                    return matchName || matchCode;
+                }
+                return true;
+            });
+
+            if (list.length === 0) {
+                el.innerHTML = `
+                    <div class="empty-state" style="padding:40px 20px;">
+                        <div class="empty-icon">📋</div>
+                        <h4>Không tìm thấy cuộc họp nào</h4>
+                        <p>${q ? 'Thử tìm với từ khóa khác' : 'Bắt đầu cuộc họp mới hoặc tham gia bằng mã phòng'}</p>
+                    </div>`;
+                return;
+            }
+
+            el.innerHTML = list.slice(0, 10).map(r => `
+                <div class="clean-m-row">
+                    <div class="clean-m-icon">📹</div>
+                    <div class="clean-m-body">
+                        <div class="clean-m-name">${x(r.room_name)}</div>
+                        <div class="clean-m-meta">
+                            <span class="clean-m-code" title="Nhấn để sao chép mã" onclick="copyText('${x(r.room_code)}', this)">
+                                📋 ${x(r.room_code)}
+                            </span>
+                            &nbsp;·&nbsp; ${fmtDT(r.joined_at)}
+                            ${r.host_id === user.id ? ' &nbsp;·&nbsp; <span style="color:var(--cyan);font-weight:600;">Chủ phòng</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="clean-m-actions">
+                        <span class="badge ${r.is_active ? 'badge-ok' : 'badge-gray'}">
+                            ${r.is_active ? '🟢 Mở' : 'Đã đóng'}
+                        </span>
+                        ${r.is_active ? `
+                            <button class="btn btn-primary btn-sm" onclick="quickJoin('${x(r.room_code)}')">
+                                Vào phòng
+                            </button>
+                        ` : ''}
+                        <a href="detail.html?room=${x(r.room_code)}" class="btn btn-ghost btn-sm">
+                            Chi tiết
+                        </a>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // ── Fast Join in Hero ─────────────────────────────────────────────────
+        function quickEnterRoom() {
+            const input = document.getElementById('heroJoinInput');
+            const code = input.value.trim().toUpperCase();
+            if (!code) {
+                T.warn('Chưa nhập mã', 'Vui lòng nhập mã phòng họp');
+                input.focus();
+                return;
+            }
+            quickJoin(code);
+        }
+
+        function quickJoin(code) {
+            const speak = user.speaking_language || 'vi';
+            const listen = user.listening_language || 'en';
+            goLobby(code, speak, listen);
+        }
+
+        function goLobby(code, speak, listen) {
+            const p = new URLSearchParams({ room: code, speakLang: speak, listenLang: listen });
+            location.href = `lobby.html?${p}`;
+        }
+
+        // ── Create Room ───────────────────────────────────────────────────────
+        async function doCreate() {
+            const name = document.getElementById('cName').value.trim();
+            const speak = document.getElementById('cSpeak').value;
+            const listen = document.getElementById('cListen').value;
+            const errEl = document.getElementById('cErr');
+            errEl.style.display = 'none';
+
+            if (!name) {
+                errEl.textContent = 'Vui lòng nhập tên cuộc họp';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            setSpin('btnCreate', 'cSpin', true);
+            try {
+                // Update language preferences
+                await fetch(`${API}/api/users/${user.id}/languages`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speak, listening_language: listen })
+                });
+
+                // Create room
+                const res = await fetch(`${API}/api/rooms?host_id=${user.id}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_name: name })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    errEl.textContent = data.detail || 'Tạo phòng thất bại';
+                    errEl.style.display = 'block';
+                    return;
+                }
+
+                // Auto-join record
+                await fetch(`${API}/api/rooms/${data.room.room_code}/join?user_id=${user.id}`, { method: 'POST' });
+                
+                user.speaking_language = speak;
+                user.listening_language = listen;
+                U.save(user);
+
+                _createdCode = data.room.room_code;
+                closeModal('modalCreate');
+                document.getElementById('createdCode').textContent = _createdCode;
+                openModal('modalCreated');
+                loadRecent();
+            } catch (_) {
+                errEl.textContent = 'Lỗi kết nối máy chủ';
+                errEl.style.display = 'block';
+            } finally {
+                setSpin('btnCreate', 'cSpin', false);
+            }
+        }
+
+        function copyCreatedCode(btn) {
+            copyText(_createdCode, btn);
+            T.ok('Đã sao chép mã phòng', _createdCode);
+        }
+
+        function enterCreated() {
+            closeModal('modalCreated');
+            goLobby(_createdCode, user.speaking_language, user.listening_language);
+        }
+
+        function setSpin(btnId, spinId, on) {
+            document.getElementById(btnId).disabled = on;
+            document.getElementById(spinId).style.display = on ? 'inline-block' : 'none';
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>WebRTC Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #111;
+            color: #0f0;
+        }
+
+        button {
+            padding: 8px 16px;
+            margin: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #log {
+            white-space: pre-wrap;
+            background: #000;
+            padding: 12px;
+            border-radius: 6px;
+            height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        .err {
+            color: #f44;
+        }
+
+        .ok {
+            color: #4f4;
+        }
+
+        .info {
+            color: #ff4;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>WebRTC Audio Debug</h2>
+    <p>Mo 2 tab cung trang nay tren CUNG MAY. Tab 1 bam "Caller", Tab 2 bam "Callee".</p>
+    <p>Signaling qua <code>BroadcastChannel</code> — khong can server.</p>
+
+    <button onclick="startCaller()">Tab 1: Caller (tao offer)</button>
+    <button onclick="startCallee()">Tab 2: Callee (nhan offer)</button>
+    <button onclick="clearLog()">Xoa log</button>
+
+    <div id="log"></div>
+
+    <script>
+        var log = document.getElementById('log');
+        function L(msg, cls) {
+            var t = new Date().toLocaleTimeString('vi', { hour12: false });
+            var line = document.createElement('div');
+            line.className = cls || '';
+            line.textContent = '[' + t + '] ' + msg;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+        }
+        function clearLog() { log.innerHTML = ''; }
+
+        // BroadcastChannel lam signaling giua 2 tab cung origin
+        var bc = new BroadcastChannel('webrtc-debug');
+
+        var pc = null;
+
+        var ICE = [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' },
+        ];
+
+        function createPC() {
+            pc = new RTCPeerConnection({ iceServers: ICE });
+
+            pc.onicecandidate = function (e) {
+                if (e.candidate) {
+                    L('ICE candidate -> broadcast', 'info');
+                    bc.postMessage({ type: 'ice', candidate: e.candidate.toJSON() });
+                } else {
+                    L('ICE gathering complete', 'ok');
+                }
+            };
+
+            pc.oniceconnectionstatechange = function () {
+                L('ICE state: ' + pc.iceConnectionState,
+                    pc.iceConnectionState === 'connected' ? 'ok' : 'info');
+            };
+
+            pc.onconnectionstatechange = function () {
+                L('Connection state: ' + pc.connectionState,
+                    pc.connectionState === 'connected' ? 'ok' :
+                        pc.connectionState === 'failed' ? 'err' : 'info');
+            };
+
+            pc.ontrack = function (e) {
+                L('*** TRACK RECEIVED! Audio incoming ***', 'ok');
+                var audio = document.createElement('audio');
+                audio.autoplay = true;
+                audio.srcObject = e.streams[0];
+                document.body.appendChild(audio);
+                audio.play().then(function () {
+                    L('Audio playing!', 'ok');
+                }).catch(function (err) {
+                    L('Autoplay blocked: ' + err.message + ' -- Click anywhere to resume', 'err');
+                    document.addEventListener('click', function () {
+                        audio.play().catch(function () { });
+                    }, { once: true });
+                });
+            };
+
+            return pc;
+        }
+
+        // Caller: xin mic -> tao offer -> broadcast
+        async function startCaller() {
+            L('=== CALLER START ===', 'ok');
+            try {
+                var stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                L('Mic OK: ' + stream.getAudioTracks()[0].label, 'ok');
+                createPC();
+                stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
+                var offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                L('Offer created, broadcasting...', 'info');
+                bc.postMessage({ type: 'offer', sdp: offer });
+            } catch (e) {
+                L('ERROR: ' + e.message, 'err');
+            }
+        }
+
+        // Callee: nhan offer -> xin mic -> tao answer -> broadcast
+        bc.onmessage = async function (e) {
+            var msg = e.data;
+            L('Received: ' + msg.type, 'info');
+
+            if (msg.type === 'offer') {
+                L('=== CALLEE: Got offer, getting mic... ===', 'ok');
+                try {
+                    var stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                    L('Mic OK: ' + stream.getAudioTracks()[0].label, 'ok');
+                    createPC();
+                    stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
+                    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                    var answer = await pc.createAnswer();
+                    await pc.setLocalDescription(answer);
+                    L('Answer created, broadcasting...', 'info');
+                    bc.postMessage({ type: 'answer', sdp: answer });
+                } catch (err) {
+                    L('ERROR: ' + err.message, 'err');
+                }
+            }
+            else if (msg.type === 'answer') {
+                if (!pc) { L('No PC for answer', 'err'); return; }
+                try {
+                    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                    L('Remote description set (answer)', 'ok');
+                } catch (err) {
+                    L('ERROR setRemoteDesc: ' + err.message, 'err');
+                }
+            }
+            else if (msg.type === 'ice') {
+                if (!pc) { L('No PC for ICE', 'err'); return; }
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                    L('ICE candidate added', 'info');
+                } catch (err) {
+                    L('ERROR addIceCandidate: ' + err.message, 'err');
+                }
+            }
+        };
+
+        async function startCallee() {
+            L('=== CALLEE MODE: Waiting for offer... ===', 'ok');
+        }
+    </script>
+</body>
+
+</html>

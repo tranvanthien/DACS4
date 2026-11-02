@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Phòng chờ — LinguaMeet</title>
+    <link rel="stylesheet" href="user.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="lobby-shell">
+
+        <!-- Trái: xem trước camera -->
+        <div class="lobby-preview">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:28px;">
+                <div
+                    style="width:34px;height:34px;background:var(--grad);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;box-shadow:0 0 20px rgba(99,102,241,0.45);">
+                    🌐</div>
+                <span style="font-size:1.2rem;font-weight:700;color:#fff;letter-spacing:-0.01em;">LinguaMeet</span>
+            </div>
+
+            <!-- Camera preview -->
+            <div class="cam-preview" id="camPreview">
+                <div class="cam-off-msg" id="camOffMsg">
+                    <div class="icon">📷</div>
+                    <div style="font-size:.82rem;">Camera chưa bật</div>
+                </div>
+                <video id="previewVideo" autoplay muted playsinline style="display:none;"></video>
+            </div>
+
+            <!-- Mic / Cam controls -->
+            <div class="cam-controls" style="margin-top:18px;">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+                    <button class="btn-icon off" id="btnMic" onclick="toggleMic()" title="Mic">🎤</button>
+                    <span style="font-size:.68rem;color:var(--text-sub);" id="micLabel">Tắt</span>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:center;gap:5px;">
+                    <button class="btn-icon off" id="btnCam" onclick="toggleCam()" title="Camera">📷</button>
+                    <span style="font-size:.68rem;color:var(--text-sub);" id="camLabel">Tắt</span>
+                </div>
+            </div>
+
+            <div
+                style="margin-top:16px;font-size:.75rem;color:var(--text-sub);text-align:center;max-width:300px;line-height:1.5;">
+                Kiểm tra camera và micro trước khi vào phòng họp
+            </div>
+        </div>
+
+        <!-- Phải: form chuẩn bị -->
+        <div class="lobby-form">
+            <div class="brand">
+                <span class="icon">🌐</span>
+                <span>LinguaMeet</span>
+            </div>
+
+            <div>
+                <h2>Chuẩn bị tham gia</h2>
+                <div class="subtitle" id="lobbySubtitle">Đang tải thông tin phòng...</div>
+            </div>
+
+            <!-- Room info -->
+            <div class="room-info-box" id="roomInfoBox" style="display:none;">
+                <span style="font-size:1.2rem;">🏠</span>
+                <div style="flex:1;">
+                    <div
+                        style="font-size:.72rem;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;">
+                        Phòng họp</div>
+                    <div class="rcode" id="roomCodeDisplay"
+                        style="font-family:monospace;font-size:1.1rem;font-weight:700;color:var(--cyan);letter-spacing:.05em;">
+                        —</div>
+                </div>
+                <button class="btn btn-ghost btn-sm"
+                    onclick="copyText(document.getElementById('roomCodeDisplay').textContent, this)">📋</button>
+            </div>
+
+            <!-- Display name -->
+            <div class="form-group">
+                <label class="form-label">Tên hiển thị trong phòng</label>
+                <input id="displayName" class="form-control" placeholder="Tên của bạn" />
+            </div>
+
+            <!-- Languages -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                    <label class="form-label">Tôi nói</label>
+                    <select id="speakLang" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tôi muốn nghe</label>
+                    <select id="listenLang" class="form-control"></select>
+                </div>
+            </div>
+
+            <!-- Device check -->
+            <div style="display:flex;flex-direction:column;gap:8px;">
+                <div
+                    style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border-radius:var(--r);border:1px solid var(--border);">
+                    <span style="font-size:.82rem;color:var(--text-muted);">🎤 Microphone</span>
+                    <span id="micStatus" class="badge badge-warn">Chưa kiểm tra</span>
+                </div>
+                <div
+                    style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg-surface);border-radius:var(--r);border:1px solid var(--border);">
+                    <span style="font-size:.82rem;color:var(--text-muted);">🌐 Kết nối mạng</span>
+                    <span id="netStatus" class="badge badge-warn">Đang kiểm tra</span>
+                </div>
+            </div>
+
+            <div id="lobbyErr" class="form-error" style="display:none;"></div>
+
+            <!-- Actions -->
+            <div style="display:flex;flex-direction:column;gap:10px;">
+                <button class="btn btn-primary btn-lg w-full" id="btnEnter" onclick="enterRoom()">
+                    <span id="enterSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                    Vào phòng họp →
+                </button>
+                <a href="home.html" class="btn btn-ghost w-full" style="justify-content:center;">← Quay lại trang
+                    chủ</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="user.js"></script>
+    <script>
+        let user = null, langs = [], roomCode = '', camStream = null;
+        let micOn = false, camOn = false;
+
+        async function init() {
+            user = U.require();
+            const p = new URLSearchParams(location.search);
+            roomCode = p.get('room') || '';
+            const speakP = p.get('speakLang') || user.speaking_language || 'vi';
+            const listenP = p.get('listenLang') || user.listening_language || 'en';
+
+            document.getElementById('displayName').value = user.full_name || '';
+
+            langs = await loadLangs();
+            const opts = langs.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+            document.getElementById('speakLang').innerHTML = opts;
+            document.getElementById('listenLang').innerHTML = opts;
+            document.getElementById('speakLang').value = speakP;
+            document.getElementById('listenLang').value = listenP;
+
+            if (roomCode) {
+                document.getElementById('roomCodeDisplay').textContent = roomCode;
+                document.getElementById('roomInfoBox').style.display = 'flex';
+                document.getElementById('lobbySubtitle').textContent = `Phòng: ${roomCode}`;
+            }
+
+            // Network check
+            const net = document.getElementById('netStatus');
+            net.textContent = navigator.onLine ? 'Tốt' : 'Mất mạng';
+            net.className = `badge ${navigator.onLine ? 'badge-ok' : 'badge-err'}`;
+
+            // Mic permission check
+            navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
+                s.getTracks().forEach(t => t.stop());
+                document.getElementById('micStatus').textContent = 'Sẵn sàng';
+                document.getElementById('micStatus').className = 'badge badge-ok';
+            }).catch(() => {
+                document.getElementById('micStatus').textContent = 'Bị từ chối';
+                document.getElementById('micStatus').className = 'badge badge-err';
+            });
+        }
+
+        async function toggleMic() {
+            micOn = !micOn;
+            const btn = document.getElementById('btnMic');
+            btn.className = `btn-icon ${micOn ? 'on' : 'off'}`;
+            btn.textContent = micOn ? '🎤' : '🔇';
+            document.getElementById('micLabel').textContent = micOn ? 'Bật' : 'Tắt';
+            if (micOn) {
+                document.getElementById('micStatus').textContent = 'Đang dùng';
+                document.getElementById('micStatus').className = 'badge badge-ok';
+            }
+        }
+
+        async function toggleCam() {
+            if (!camOn) {
+                try {
+                    camStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    const v = document.getElementById('previewVideo');
+                    v.srcObject = camStream; v.style.display = 'block';
+                    document.getElementById('camOffMsg').style.display = 'none';
+                    camOn = true;
+                } catch (e) {
+                    T.err('Không mở được camera', e.name === 'NotAllowedError' ? 'Hãy cấp quyền camera trong trình duyệt' : e.message);
+                    return;
+                }
+            } else {
+                if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null;
+                document.getElementById('previewVideo').style.display = 'none';
+                document.getElementById('previewVideo').srcObject = null;
+                document.getElementById('camOffMsg').style.display = 'flex';
+                camOn = false;
+            }
+            const btn = document.getElementById('btnCam');
+            btn.className = `btn-icon ${camOn ? 'on' : 'off'}`;
+            btn.textContent = camOn ? '📹' : '📷';
+            document.getElementById('camLabel').textContent = camOn ? 'Bật' : 'Tắt';
+        }
+
+        async function enterRoom() {
+            if (!roomCode) { document.getElementById('lobbyErr').textContent = 'Không tìm thấy mã phòng'; document.getElementById('lobbyErr').style.display = 'block'; return; }
+            const speak = document.getElementById('speakLang').value;
+            const listen = document.getElementById('listenLang').value;
+            const dname = document.getElementById('displayName').value.trim() || user.full_name;
+
+            // Stop camera preview — room.html sẽ tự lấy stream riêng
+            if (camStream) camStream.getTracks().forEach(t => t.stop()); camStream = null;
+
+            document.getElementById('enterSpin').style.display = 'inline-block';
+            document.getElementById('btnEnter').disabled = true;
+
+            try {
+                // 1. Cập nhật ngôn ngữ
+                await fetch(`${API}/api/users/${user.id}/languages`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speak, listening_language: listen })
+                });
+                user.speaking_language = speak; user.listening_language = listen; U.save(user);
+
+                // 2. Join phòng — BẮT BUỘC trước khi vào room.html
+                //    WebSocket endpoint kiểm tra is_active membership, thiếu bước này
+                //    backend sẽ từ chối với "User is not a member of this room"
+                const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join?user_id=${user.id}`, { method: 'POST' });
+                if (!joinRes.ok) {
+                    const err = await joinRes.json().catch(() => ({}));
+                    throw new Error(err.detail || `Không thể tham gia phòng (${joinRes.status})`);
+                }
+
+                // 3. Chuyển sang phòng họp
+                goRoom(roomCode, user.id, speak, listen, dname);
+            } catch (e) {
+                document.getElementById('lobbyErr').textContent = e.message || 'Lỗi kết nối máy chủ';
+                document.getElementById('lobbyErr').style.display = 'block';
+                document.getElementById('enterSpin').style.display = 'none';
+                document.getElementById('btnEnter').disabled = false;
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

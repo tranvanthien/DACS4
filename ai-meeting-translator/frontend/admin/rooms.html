@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Quản lý cuộc họp — Admin LinguaMeet</title>
+    <link rel="stylesheet" href="admin.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="adminSidebar"></aside>
+        <div class="admin-main">
+            <header class="admin-topbar" id="adminTopbar"></header>
+            <div class="admin-content">
+
+                <div class="page-hd">
+                    <div>
+                        <h2>📹 Quản lý Cuộc họp</h2>
+                        <p style="font-size:.8rem;color:var(--g500);margin-top:3px;">
+                            Theo dõi danh sách phòng họp, người chủ trì (Host), thành viên và số lượng kết nối realtime
+                        </p>
+                    </div>
+                    <div class="phd-actions">
+                        <span id="roomStats" style="font-size:.8rem;color:var(--g500);align-self:center;"></span>
+                        <button class="btn btn-primary btn-sm" onclick="loadRooms()">🔄 Làm mới</button>
+                    </div>
+                </div>
+
+                <div class="data-table-wrap">
+                    <div class="table-toolbar">
+                        <div class="search-box">
+                            <span>🔍</span>
+                            <input id="searchQ" type="text" placeholder="Tìm mã phòng, tên phòng..." oninput="filterRooms()" />
+                        </div>
+                        <select id="filterStatus" class="filter-select" onchange="filterRooms()">
+                            <option value="">Tất cả trạng thái</option>
+                            <option value="live">🟢 Đang họp trực tuyến (Live)</option>
+                            <option value="active">🔵 Đang mở (Active)</option>
+                            <option value="idle">🟡 Chờ họp / Trống (Idle)</option>
+                            <option value="closed">⚪ Đã đóng (Closed)</option>
+                        </select>
+                        <span style="margin-left:auto;font-size:.75rem;color:var(--g500);" id="filterResult"></span>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Tên phòng họp</th>
+                                    <th>Mã phòng</th>
+                                    <th>Người tạo (Host)</th>
+                                    <th>Thành viên (DB)</th>
+                                    <th>Online Live</th>
+                                    <th>Thời gian tạo</th>
+                                    <th>Trạng thái</th>
+                                    <th style="text-align:right;">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="roomsBody">
+                                <tr>
+                                    <td colspan="8" style="text-align:center;padding:24px;">
+                                        <span class="spin"></span> Đang tải cuộc họp...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="pagination" id="roomsPagination"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Chi tiết phòng -->
+    <div id="modalRoom" class="modal-bg" onclick="if(event.target===this)closeModal('modalRoom')">
+        <div class="modal" style="max-width:580px;">
+            <div class="modal-head">
+                <h3 id="modalRoomTitle">Chi tiết phòng họp</h3>
+                <button class="x-btn" onclick="closeModal('modalRoom')">✕</button>
+            </div>
+            <div class="modal-body" id="modalRoomBody"></div>
+            <div class="modal-foot" id="modalRoomFoot">
+                <button class="btn btn-ghost" onclick="closeModal('modalRoom')">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+    <script>
+        let allRooms = [], filtered = [];
+        let page = 1; const PAGE_SIZE = 15;
+
+        async function initRooms() {
+            if (!A.require()) return;
+            renderSidebar('rooms.html');
+            renderTopbar('Quản lý Cuộc họp');
+            await loadRooms();
+        }
+
+        async function loadRooms() {
+            const tbody = document.getElementById('roomsBody');
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;"><span class="spin"></span> Đang tải...</td></tr>';
+            try {
+                // Gọi API Admin Rooms thật từ backend
+                const data = await apiGet('/api/admin/rooms?page=1&page_size=100');
+                allRooms = data.rooms || [];
+                const activeCount = allRooms.filter(r => r.is_active).length;
+                const liveCount = allRooms.filter(r => r.is_active && r.live_peers_count > 0).length;
+                document.getElementById('roomStats').textContent = `${data.total} phòng · ${liveCount} đang họp trực tuyến · ${activeCount} đang mở`;
+                filtered = [...allRooms];
+                filterRooms();
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:16px;color:var(--err);">⚠ ${xe(e.message)}</td></tr>`;
+            }
+        }
+
+        function filterRooms() {
+            const q = document.getElementById('searchQ').value.toLowerCase().trim();
+            const s = document.getElementById('filterStatus').value;
+            filtered = allRooms.filter(r => {
+                const mq = !q || r.room_code.toLowerCase().includes(q) || r.room_name.toLowerCase().includes(q) || (r.host_name && r.host_name.toLowerCase().includes(q));
+                let ms = true;
+                if (s === 'live') ms = r.is_active && r.live_peers_count > 0;
+                else if (s === 'idle') ms = r.is_active && r.live_peers_count === 0;
+                else if (s === 'active') ms = r.is_active;
+                else if (s === 'closed') ms = !r.is_active;
+                return mq && ms;
+            });
+            document.getElementById('filterResult').textContent = (q || s) ? `${filtered.length} kết quả` : '';
+            page = 1;
+            renderTable();
+        }
+
+        function renderTable() {
+            const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+            const tbody = document.getElementById('roomsBody');
+            if (!rows.length) {
+                tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📹</div><h4>Không tìm thấy phòng họp</h4></div></td></tr>`;
+                document.getElementById('roomsPagination').innerHTML = '';
+                return;
+            }
+
+            tbody.innerHTML = rows.map(r => `
+                <tr>
+                    <td style="font-weight:600;color:var(--g900);">${xe(r.room_name)}</td>
+                    <td><span class="cell-mono">${xe(r.room_code)}</span></td>
+                    <td>
+                        <div style="font-size:.82rem;font-weight:500;">${xe(r.host_name)}</div>
+                        <div style="font-size:.7rem;color:var(--g500);">${xe(r.host_email)}</div>
+                    </td>
+                    <td><span class="badge badge-primary">${r.active_members_count} người</span></td>
+                    <td>
+                        ${r.live_peers_count > 0 
+                            ? `<span class="badge badge-ok"><span class="dot dot-ok dot-pulse"></span>${r.live_peers_count} online</span>` 
+                            : `<span style="color:var(--g400);font-size:.78rem;">0</span>`}
+                    </td>
+                    <td style="font-size:.78rem;color:var(--g500);">${fmtDT(r.created_at)}</td>
+                    <td>
+                        ${!r.is_active 
+                            ? `<span class="badge badge-gray">Đã đóng</span>`
+                            : (r.live_peers_count > 0 
+                                ? `<span class="badge badge-ok"><span class="dot dot-ok dot-pulse"></span>Đang họp</span>` 
+                                : `<span class="badge" style="background:rgba(245,158,11,0.12);color:#d97706;border:1px solid rgba(245,158,11,0.25);">Chờ họp (Trống)</span>`)
+                        }
+                    </td>
+                    <td class="td-actions" style="text-align:right;">
+                        <button class="btn btn-ghost btn-xs" onclick="showRoomDetail('${r.room_code}')">👁 Chi tiết</button>
+                        ${r.is_active 
+                            ? `<button class="btn btn-secondary btn-xs" style="color:var(--warn);" onclick="confirmCloseRoom('${r.room_code}')">🔒 Đóng</button>` 
+                            : ''}
+                        <button class="btn btn-danger btn-xs" onclick="confirmDeleteRoom('${r.room_code}')">🗑️</button>
+                    </td>
+                </tr>
+            `).join('');
+
+            renderPagination('roomsPagination', filtered.length, page, PAGE_SIZE, 'goPage');
+        }
+
+        function goPage(p) { page = p; renderTable(); }
+
+        async function showRoomDetail(code) {
+            document.getElementById('modalRoomTitle').textContent = `📹 Chi tiết phòng: ${code}`;
+            document.getElementById('modalRoomBody').innerHTML = '<div style="text-align:center;padding:24px;"><span class="spin"></span> Đang tải...</div>';
+            openModal('modalRoom');
+
+            try {
+                const res = await apiGet(`/api/admin/rooms/${code}`);
+                const r = res.room || {};
+                const members = res.members || [];
+                const livePeers = res.live_online_users || [];
+
+                let membersListHtml = members.length ? members.map(m => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--g100);">
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <div class="cell-av">${(m.full_name || 'U').charAt(0).toUpperCase()}</div>
+                            <div>
+                                <div style="font-size:.82rem;font-weight:600;">${xe(m.full_name)}</div>
+                                <div style="font-size:.72rem;color:var(--g500);">${xe(m.email)} • Nói: ${m.speaking_language} | Nghe: ${m.listening_language}</div>
+                            </div>
+                        </div>
+                        <div>
+                            ${m.is_online_now 
+                                ? `<span class="badge badge-ok"><span class="dot dot-ok dot-pulse"></span>Online WS</span>` 
+                                : `<span class="badge badge-gray">Offline</span>`}
+                        </div>
+                    </div>
+                `).join('') : '<div style="color:var(--g400);font-size:.8rem;padding:8px 0;">Chưa có thành viên tham gia</div>';
+
+                document.getElementById('modalRoomBody').innerHTML = `
+                    <div class="detail-grid" style="margin-bottom:16px;">
+                        <div class="detail-item"><div class="dl">Tên phòng</div><div class="dv"><b>${xe(r.room_name)}</b></div></div>
+                        <div class="detail-item"><div class="dl">Mã phòng</div><div class="dv"><span class="cell-mono">${xe(r.room_code)}</span></div></div>
+                        <div class="detail-item"><div class="dl">Người tạo (Host)</div><div class="dv">${xe(r.host_name)} (${xe(r.host_email)})</div></div>
+                        <div class="detail-item"><div class="dl">Trạng thái</div><div class="dv"><span class="badge ${r.is_active ? 'badge-ok' : 'badge-gray'}">${r.is_active ? 'Đang mở' : 'Đã đóng'}</span></div></div>
+                        <div class="detail-item"><div class="dl">Thời gian tạo</div><div class="dv">${fmtDT(r.created_at)}</div></div>
+                        <div class="detail-item"><div class="dl">Trực tuyến hiện tại</div><div class="dv"><b>${livePeers.length}</b> kết nối socket</div></div>
+                    </div>
+                    <div style="font-size:.8rem;font-weight:700;color:var(--g700);margin-bottom:8px;">DANH SÁCH THÀNH VIÊN (${members.length})</div>
+                    <div style="max-height:220px;overflow-y:auto;padding-right:6px;">
+                        ${membersListHtml}
+                    </div>
+                `;
+
+                const foot = document.getElementById('modalRoomFoot');
+                foot.innerHTML = `
+                    <button class="btn btn-ghost" onclick="closeModal('modalRoom')">Đóng</button>
+                    ${r.is_active ? `<button class="btn btn-secondary" style="color:var(--warn);" onclick="confirmCloseRoom('${xe(r.room_code)}')">🔒 Đóng phòng cưỡng chế</button>` : ''}
+                    <button class="btn btn-danger" onclick="confirmDeleteRoom('${xe(r.room_code)}')">🗑️ Xóa phòng</button>
+                `;
+            } catch (e) {
+                document.getElementById('modalRoomBody').innerHTML = `<div style="color:var(--err);padding:16px;">Lỗi: ${xe(e.message)}</div>`;
+            }
+        }
+
+        async function confirmCloseRoom(code) {
+            if (!confirm(`Bạn có chắc chắn muốn đóng phòng [${code}]? Mọi thành viên đang online sẽ bị ngắt kết nối.`)) return;
+            try {
+                const res = await apiPost(`/api/admin/rooms/${code}/close`, {});
+                T.ok('Đã đóng phòng', res.message || code);
+                closeModal('modalRoom');
+                loadRooms();
+            } catch (e) {
+                T.err('Lỗi đóng phòng', e.message);
+            }
+        }
+
+        async function confirmDeleteRoom(code) {
+            if (!confirm(`Xóa vĩnh viễn phòng [${code}] và lịch sử thành viên? Hành động này không thể hoàn tác.`)) return;
+            try {
+                const res = await apiDelete(`/api/admin/rooms/${code}`);
+                T.ok('Đã xóa', res.message || code);
+                closeModal('modalRoom');
+                loadRooms();
+            } catch (e) {
+                T.err('Lỗi xóa phòng', e.message);
+            }
+        }
+
+        initRooms();
+    </script>
+</body>
+
+</html>

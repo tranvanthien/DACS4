@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>Quản lý ngôn ngữ — LinguaMeet</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🌐</div>
+                <div>
+                    <div class="brand-name">LinguaMeet</div>
+                    <div class="brand-sub">AI Translator</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Menu</div>
+                <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Tổng quan</a>
+                <div class="nav-section-label" style="margin-top:8px;">Công cụ</div>
+                <a class="nav-item" href="lobby.html"><span class="nav-icon">🚪</span> Phòng chờ</a>
+                <a class="nav-item" href="transcript.html"><span class="nav-icon">📝</span> Phụ đề trực tiếp</a>
+                <a class="nav-item" href="summary.html"><span class="nav-icon">🤖</span> Biên bản AI</a>
+                <a class="nav-item" href="participants.html"><span class="nav-icon">👥</span> Thành viên</a>
+                <a class="nav-item active" href="languages.html"><span class="nav-icon">🌐</span> Ngôn ngữ</a>
+                <div class="nav-section-label" style="margin-top:8px;">Hệ thống</div>
+                <a class="nav-item" href="help.html"><span class="nav-icon">❓</span> Hỗ trợ</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="avatar avatar-sm" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUserName">—</div>
+                    <div class="user-email" id="sidebarUserEmail">—</div>
+                </div>
+                <a href="index.html" class="btn-icon" style="margin-left:auto;">🏠</a>
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <header class="topbar">
+                <button class="btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"
+                    style="display:none;" id="btnSidebarToggle">☰</button>
+                <div style="flex:1;">
+                    <span style="font-size:.85rem;color:var(--gray-500);">LinguaMeet /</span>
+                    <span style="font-size:.85rem;font-weight:600;"> Ngôn ngữ & Giọng đọc</span>
+                </div>
+                <div class="topbar-actions">
+                    <span style="font-size:.82rem;color:var(--gray-500);" id="langCountBadge"></span>
+                </div>
+            </header>
+
+            <div class="page-body">
+
+                <!-- My languages -->
+                <div class="card">
+                    <div class="card-header">
+                        <h4>⚙️ Ngôn ngữ của tôi</h4>
+                        <button class="btn btn-primary btn-sm" onclick="saveMyLanguages()">💾 Lưu</button>
+                    </div>
+                    <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                        <div class="form-group">
+                            <label class="form-label">🎤 Ngôn ngữ tôi nói</label>
+                            <select id="mySpeak" class="form-control"
+                                onchange="highlightCard(this.value,'speak')"></select>
+                            <small>Whisper STT nhận diện giọng nói của bạn</small>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">🔊 Ngôn ngữ tôi muốn nghe</label>
+                            <select id="myListen" class="form-control"
+                                onchange="highlightCard(this.value,'listen')"></select>
+                            <small>AI dịch và TTS phát giọng đọc cho bạn</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Provider info -->
+                <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+                    <div class="card" style="padding:16px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                            <div class="stat-icon purple" style="width:36px;height:36px;font-size:1rem;">🎤</div>
+                            <div style="font-size:.9rem;font-weight:600;">Speech-to-Text</div>
+                        </div>
+                        <div style="font-size:.82rem;color:var(--gray-600);">Provider: <strong>Whisper
+                                (faster-whisper)</strong></div>
+                        <div style="font-size:.78rem;color:var(--gray-500);margin-top:4px;">Model: small / CPU / int8
+                        </div>
+                        <div style="margin-top:8px;"><span class="lang-feature-badge stt">8 ngôn ngữ</span></div>
+                    </div>
+                    <div class="card" style="padding:16px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                            <div class="stat-icon blue" style="width:36px;height:36px;font-size:1rem;">🌍</div>
+                            <div style="font-size:.9rem;font-weight:600;">Dịch thuật</div>
+                        </div>
+                        <div style="font-size:.82rem;color:var(--gray-600);">Provider: <strong>DeepGoogle</strong></div>
+                        <div style="font-size:.78rem;color:var(--gray-500);margin-top:4px;">Miễn phí, chất lượng cao
+                        </div>
+                        <div style="margin-top:8px;"><span class="lang-feature-badge translate">8+ ngôn ngữ</span></div>
+                    </div>
+                    <div class="card" style="padding:16px;">
+                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                            <div class="stat-icon green" style="width:36px;height:36px;font-size:1rem;">🔊</div>
+                            <div style="font-size:.9rem;font-weight:600;">Text-to-Speech</div>
+                        </div>
+                        <div style="font-size:.82rem;color:var(--gray-600);">Provider: <strong
+                                id="ttsProviderName">gTTS</strong></div>
+                        <div style="font-size:.78rem;color:var(--gray-500);margin-top:4px;">Google TTS / Edge TTS</div>
+                        <div style="margin-top:8px;"><span class="lang-feature-badge tts">8 ngôn ngữ</span></div>
+                    </div>
+                </div>
+
+                <!-- Language cards -->
+                <div>
+                    <div class="section-header">
+                        <span class="section-title">Ngôn ngữ được hỗ trợ</span>
+                        <span style="font-size:.8rem;color:var(--gray-500);" id="langSubtitle"></span>
+                    </div>
+                    <div class="lang-grid" id="langGrid">
+                        <div style="padding:40px;text-align:center;color:var(--gray-400);grid-column:1/-1;">
+                            <span class="spinner"></span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const LANG_FEATURES = {
+            vi: { stt: true, tts: true, translate: true },
+            en: { stt: true, tts: true, translate: true },
+            ko: { stt: true, tts: true, translate: true },
+            ja: { stt: true, tts: true, translate: true },
+            zh: { stt: true, tts: true, translate: true },
+            fr: { stt: true, tts: true, translate: true },
+            de: { stt: true, tts: true, translate: true },
+            es: { stt: true, tts: true, translate: true },
+        };
+
+        let languages = [];
+        let mySpeak = 'vi', myListen = 'en';
+
+        async function initLanguages() {
+            const user = Session.load();
+            if (user) {
+                const init = (user.full_name || 'U').charAt(0).toUpperCase();
+                document.getElementById('sidebarAvatar').textContent = init;
+                document.getElementById('sidebarUserName').textContent = user.full_name || '';
+                document.getElementById('sidebarUserEmail').textContent = user.email || '';
+                mySpeak = user.speaking_language || 'vi';
+                myListen = user.listening_language || 'en';
+            }
+
+            try {
+                const res = await fetch(API + '/api/languages');
+                if (res.ok) {
+                    languages = await res.json();
+                    const opts = languages.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+                    document.getElementById('mySpeak').innerHTML = opts;
+                    document.getElementById('myListen').innerHTML = opts;
+                    document.getElementById('mySpeak').value = mySpeak;
+                    document.getElementById('myListen').value = myListen;
+                    document.getElementById('langCountBadge').textContent = `${languages.length} ngôn ngữ hỗ trợ`;
+                    document.getElementById('langSubtitle').textContent = `${languages.length} ngôn ngữ`;
+                    renderLangGrid();
+                }
+            } catch (_) {
+                Toast.error('Lỗi', 'Không tải được danh sách ngôn ngữ');
+            }
+
+            handleResize();
+            window.addEventListener('resize', handleResize);
+        }
+
+        function renderLangGrid() {
+            const grid = document.getElementById('langGrid');
+            grid.innerHTML = languages.map(l => {
+                const f = LANG_FEATURES[l.code] || {};
+                const isSpeak = l.code === document.getElementById('mySpeak').value;
+                const isListen = l.code === document.getElementById('myListen').value;
+                return `
+        <div class="lang-card ${isSpeak || isListen ? 'active' : ''}" id="langCard-${l.code}">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <span class="lang-card-flag">${l.flag || '🌐'}</span>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+              ${isSpeak ? '<span class="badge badge-primary" style="font-size:.6rem;">🎤 Nói</span>' : ''}
+              ${isListen ? '<span class="badge badge-success" style="font-size:.6rem;">🔊 Nghe</span>' : ''}
+            </div>
+          </div>
+          <div class="lang-card-name">${esc(l.name)}</div>
+          <div class="lang-card-code">${l.code}</div>
+          <div class="lang-card-badges">
+            ${f.stt ? '<span class="lang-feature-badge stt">STT</span>' : ''}
+            ${f.translate ? '<span class="lang-feature-badge translate">Dịch</span>' : ''}
+            ${f.tts ? '<span class="lang-feature-badge tts">TTS</span>' : ''}
+          </div>
+          <button class="voice-preview-btn" onclick="previewVoice('${l.code}','${esc(l.name)}')">
+            🔊 Nghe thử giọng đọc
+          </button>
+        </div>
+      `;
+            }).join('');
+        }
+
+        function highlightCard(code) { renderLangGrid(); }
+
+        async function saveMyLanguages() {
+            const user = Session.load();
+            if (!user) { window.location.href = 'index.html'; return; }
+            const speakLang = document.getElementById('mySpeak').value;
+            const listenLang = document.getElementById('myListen').value;
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/languages`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speakLang, listening_language: listenLang }),
+                });
+                if (!res.ok) throw new Error();
+                user.speaking_language = speakLang;
+                user.listening_language = listenLang;
+                Session.save(user);
+                mySpeak = speakLang; myListen = listenLang;
+                renderLangGrid();
+                Toast.success('Đã lưu', `Nói: ${speakLang} · Nghe: ${listenLang}`);
+            } catch (_) {
+                Toast.error('Lỗi', 'Không thể lưu ngôn ngữ');
+            }
+        }
+
+        const PREVIEW_TEXTS = {
+            vi: 'Xin chào! Đây là giọng đọc tiếng Việt.',
+            en: 'Hello! This is the English voice.',
+            ko: '안녕하세요! 한국어 음성입니다.',
+            ja: 'こんにちは！日本語の音声です。',
+            zh: '你好！这是中文语音。',
+            fr: 'Bonjour ! Voici la voix française.',
+            de: 'Hallo! Das ist die deutsche Stimme.',
+            es: '¡Hola! Esta es la voz en español.',
+        };
+
+        async function previewVoice(code, name) {
+            Toast.info(`Giọng ${name}`, 'Đang tạo giọng đọc... (cần server)');
+            // TTS preview gọi qua API backend nếu có endpoint — hiện backend chưa expose REST TTS
+            // Đây là placeholder UI đúng chức năng
+        }
+
+        function handleResize() {
+            const btn = document.getElementById('btnSidebarToggle');
+            if (btn) btn.style.display = window.innerWidth < 768 ? 'flex' : 'none';
+        }
+
+        initLanguages();
+    </script>
+</body>
+
+</html>

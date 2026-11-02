@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>Biên bản AI — LinguaMeet</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+
+    <div class="app-layout">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🌐</div>
+                <div>
+                    <div class="brand-name">LinguaMeet</div>
+                    <div class="brand-sub">AI Translator</div>
+                </div>
+            </div>
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Menu</div>
+                <a class="nav-item" href="index.html"><span class="nav-icon">🏠</span> Tổng quan</a>
+                <div class="nav-section-label" style="margin-top:8px;">Công cụ</div>
+                <a class="nav-item" href="lobby.html"><span class="nav-icon">🚪</span> Phòng chờ</a>
+                <a class="nav-item" href="transcript.html"><span class="nav-icon">📝</span> Phụ đề trực tiếp</a>
+                <a class="nav-item active" href="summary.html"><span class="nav-icon">🤖</span> Biên bản AI</a>
+                <a class="nav-item" href="participants.html"><span class="nav-icon">👥</span> Thành viên</a>
+                <a class="nav-item" href="languages.html"><span class="nav-icon">🌐</span> Ngôn ngữ</a>
+                <div class="nav-section-label" style="margin-top:8px;">Hệ thống</div>
+                <a class="nav-item" href="help.html"><span class="nav-icon">❓</span> Hỗ trợ</a>
+            </nav>
+            <div class="sidebar-user">
+                <div class="avatar avatar-sm" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUserName">—</div>
+                    <div class="user-email" id="sidebarUserEmail">—</div>
+                </div>
+                <a href="index.html" class="btn-icon" style="margin-left:auto;">🏠</a>
+            </div>
+        </aside>
+
+        <div class="main-content">
+            <header class="topbar">
+                <button class="btn-icon" onclick="document.getElementById('sidebar').classList.toggle('open')"
+                    style="display:none;" id="btnSidebarToggle">☰</button>
+                <div style="flex:1;">
+                    <span style="font-size:.85rem;color:var(--gray-500);">LinguaMeet /</span>
+                    <span style="font-size:.85rem;font-weight:600;"> Biên bản AI</span>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn btn-ghost btn-sm" onclick="exportSummary()">⬇ Xuất PDF</button>
+                    <button class="btn btn-primary btn-sm" onclick="generateSummary()">
+                        <span id="genSpinner" class="spinner spinner-sm hidden"></span>
+                        🤖 Tạo tóm tắt
+                    </button>
+                </div>
+            </header>
+
+            <div class="page-body">
+
+                <!-- AI Notice -->
+                <div class="ai-notice">
+                    <span style="font-size:1.1rem;">ℹ️</span>
+                    <span>Tính năng tóm tắt AI đang trong giai đoạn phát triển. Biên bản bên dưới được tạo từ dữ liệu
+                        phiên họp hiện tại.</span>
+                </div>
+
+                <!-- Room selector -->
+                <div class="card">
+                    <div class="card-body" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <div class="form-group"
+                            style="flex-direction:row;align-items:center;gap:8px;margin:0;flex:1;min-width:180px;">
+                            <label style="font-size:.82rem;color:var(--gray-600);white-space:nowrap;">Mã phòng</label>
+                            <input id="summaryRoomCode" type="text" class="form-control"
+                                style="font-family:monospace;text-transform:uppercase;" placeholder="ABC123"
+                                oninput="this.value=this.value.toUpperCase()" />
+                        </div>
+                        <button class="btn btn-secondary" onclick="loadSummaryRoom()">📂 Tải dữ liệu phòng</button>
+                        <span id="summaryRoomInfo" style="font-size:.8rem;color:var(--gray-500);"></span>
+                    </div>
+                </div>
+
+                <!-- Summary grid -->
+                <div class="summary-grid" id="summaryContent" style="display:none;">
+
+                    <!-- Main summary -->
+                    <div style="display:flex;flex-direction:column;gap:16px;">
+
+                        <!-- Meeting info -->
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">📋</span>
+                                <h4>Thông tin cuộc họp</h4>
+                            </div>
+                            <div class="summary-card-body">
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Tên phòng</span>
+                                    <span class="summary-stat-value" id="sumRoomName">—</span>
+                                </div>
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Mã phòng</span>
+                                    <span class="summary-stat-value" id="sumRoomCode"
+                                        style="font-family:monospace;">—</span>
+                                </div>
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Thời gian tạo</span>
+                                    <span class="summary-stat-value" id="sumCreatedAt">—</span>
+                                </div>
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Số thành viên</span>
+                                    <span class="summary-stat-value" id="sumMemberCount">—</span>
+                                </div>
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Trạng thái</span>
+                                    <span class="summary-stat-value" id="sumStatus">—</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AI Summary placeholder -->
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">🤖</span>
+                                <h4>Tóm tắt nội dung</h4>
+                                <span class="badge badge-warning" style="margin-left:auto;">Chưa có dữ liệu</span>
+                            </div>
+                            <div class="summary-card-body" id="aiSummaryBody">
+                                <div class="empty-state" style="padding:20px;">
+                                    <div class="empty-icon">🤖</div>
+                                    <h4>Tính năng đang phát triển</h4>
+                                    <p>Backend chưa hỗ trợ lưu transcript. Khi có dữ liệu, AI sẽ tự động tóm tắt nội
+                                        dung cuộc họp.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Topics -->
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">🏷️</span>
+                                <h4>Chủ đề thảo luận</h4>
+                            </div>
+                            <div class="summary-card-body">
+                                <div id="topicsList">
+                                    <span class="topic-chip">🤖 Chưa có dữ liệu</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action items -->
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">✅</span>
+                                <h4>Mục hành động</h4>
+                            </div>
+                            <div class="summary-card-body" id="actionsList">
+                                <div class="action-item">
+                                    <div class="action-num">1</div>
+                                    <div class="action-text">Tính năng tóm tắt sẽ tự động tạo danh sách hành động khi
+                                        backend hỗ trợ lưu transcript.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Side: participants & languages -->
+                    <div style="display:flex;flex-direction:column;gap:16px;">
+
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">👥</span>
+                                <h4>Thành viên tham gia</h4>
+                            </div>
+                            <div class="summary-card-body" id="sumParticipants" style="padding:0;">
+                                <div style="padding:16px;color:var(--gray-400);text-align:center;font-size:.85rem;">—
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">🌐</span>
+                                <h4>Ngôn ngữ sử dụng</h4>
+                            </div>
+                            <div class="summary-card-body" id="sumLanguages">
+                                <div style="color:var(--gray-400);font-size:.85rem;">—</div>
+                            </div>
+                        </div>
+
+                        <div class="summary-card">
+                            <div class="summary-card-header">
+                                <span class="card-icon">📊</span>
+                                <h4>Thống kê nhanh</h4>
+                            </div>
+                            <div class="summary-card-body">
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Lượt nói</span>
+                                    <span class="summary-stat-value" id="sumTurns">—</span>
+                                </div>
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">Bản dịch</span>
+                                    <span class="summary-stat-value" id="sumTranslations">—</span>
+                                </div>
+                                <div class="summary-stat-row">
+                                    <span class="summary-stat-label">TTS phát</span>
+                                    <span class="summary-stat-value" id="sumTTS">—</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        async function initSummary() {
+            const user = Session.load();
+            if (user) {
+                const init = (user.full_name || 'U').charAt(0).toUpperCase();
+                ['sidebarAvatar', 'topbarAvatar'].forEach(id => { const e = document.getElementById(id); if (e) e.textContent = init; });
+                document.getElementById('sidebarUserName').textContent = user.full_name || '';
+                document.getElementById('sidebarUserEmail').textContent = user.email || '';
+            }
+            const p = new URLSearchParams(window.location.search);
+            if (p.get('room')) {
+                document.getElementById('summaryRoomCode').value = p.get('room').toUpperCase();
+                loadSummaryRoom();
+            }
+            handleResize();
+            window.addEventListener('resize', handleResize);
+        }
+
+        async function loadSummaryRoom() {
+            const code = document.getElementById('summaryRoomCode').value.trim().toUpperCase();
+            if (!code) { Toast.error('Thiếu mã phòng', ''); return; }
+            try {
+                const [roomRes, membersRes] = await Promise.all([
+                    fetch(`${API}/api/rooms/${code}`),
+                    fetch(`${API}/api/rooms/${code}/members`),
+                ]);
+                if (!roomRes.ok) { Toast.error('Không tìm thấy phòng', code); return; }
+                const room = await roomRes.json();
+                const members = membersRes.ok ? await membersRes.json() : [];
+
+                document.getElementById('summaryContent').style.display = 'grid';
+                document.getElementById('summaryRoomInfo').textContent = `✓ ${room.room_name}`;
+
+                document.getElementById('sumRoomName').textContent = room.room_name;
+                document.getElementById('sumRoomCode').textContent = room.room_code;
+                document.getElementById('sumCreatedAt').textContent = fmtDatetime(room.created_at);
+                document.getElementById('sumMemberCount').textContent = members.length + ' người';
+                document.getElementById('sumStatus').innerHTML = room.is_active
+                    ? '<span class="badge badge-success">Đang hoạt động</span>'
+                    : '<span class="badge badge-gray">Đã đóng</span>';
+
+                // Participants
+                document.getElementById('sumParticipants').innerHTML = members.length === 0
+                    ? '<div style="padding:16px;color:var(--gray-400);text-align:center;">Không có thành viên</div>'
+                    : members.map(m => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--gray-100);">
+            <div class="avatar avatar-sm">${String(m.user_id).charAt(0)}</div>
+            <div style="flex:1;font-size:.85rem;">User ${m.user_id}</div>
+            <span class="badge ${m.is_active ? 'badge-success' : 'badge-gray'}">${m.is_active ? 'Đang online' : 'Đã rời'}</span>
+          </div>
+        `).join('');
+
+                document.getElementById('sumTranslations').textContent = '— (chưa hỗ trợ)';
+                document.getElementById('sumTurns').textContent = '— (chưa hỗ trợ)';
+                document.getElementById('sumTTS').textContent = '— (chưa hỗ trợ)';
+
+                Toast.success('Đã tải', `Phòng ${code}`);
+            } catch (_) {
+                Toast.error('Lỗi kết nối', 'Không thể tải dữ liệu phòng');
+            }
+        }
+
+        function generateSummary() {
+            Toast.warning('Chưa hỗ trợ', 'Tính năng tóm tắt AI đang phát triển');
+        }
+
+        function exportSummary() {
+            const code = document.getElementById('sumRoomCode').textContent;
+            if (code === '—') { Toast.warning('Chưa có dữ liệu', ''); return; }
+            const content = `BIÊN BẢN CUỘC HỌP\n==================\nPhòng: ${code}\nTên: ${document.getElementById('sumRoomName').textContent}\nThành viên: ${document.getElementById('sumMemberCount').textContent}\nThời gian: ${document.getElementById('sumCreatedAt').textContent}\n\nLưu ý: Tính năng tóm tắt AI đang được phát triển.`;
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `meeting_summary_${code}.txt`;
+            a.click();
+            Toast.success('Đã xuất', 'meeting_summary.txt');
+        }
+
+        function fmtDatetime(d) {
+            return new Date(d).toLocaleString('vi-VN');
+        }
+
+        function handleResize() {
+            const btn = document.getElementById('btnSidebarToggle');
+            if (btn) btn.style.display = window.innerWidth < 768 ? 'flex' : 'none';
+        }
+
+        initSummary();
+    </script>
+</body>
+
+</html>

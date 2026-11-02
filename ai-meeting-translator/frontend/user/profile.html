@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Hồ sơ & Cài đặt — LinguaMeet</title>
+    <link rel="stylesheet" href="user.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+    <div class="app-shell">
+        <nav class="topnav" id="topnav"></nav>
+
+        <div class="page-wrap" style="max-width:640px;">
+
+            <!-- Avatar + name -->
+            <div class="card">
+                <div style="padding:24px 20px;display:flex;align-items:center;gap:18px;">
+                    <div class="avatar av-lg" id="profileAvatar">?</div>
+                    <div>
+                        <div style="font-size:1.15rem;font-weight:700;color:var(--g900);" id="profileName">—</div>
+                        <div style="font-size:.82rem;color:var(--g500);" id="profileEmail">—</div>
+                        <div style="margin-top:6px;"><span class="badge badge-primary">Người dùng</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thông tin cá nhân -->
+            <div class="profile-section">
+                <div class="profile-section-head">
+                    <span style="font-size:1rem;">👤</span>
+                    <h4>Thông tin cá nhân</h4>
+                </div>
+                <div class="profile-section-body">
+                    <div class="form-group">
+                        <label class="form-label">Họ và tên</label>
+                        <input id="editName" type="text" class="form-control" placeholder="Nguyễn Văn A" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input id="editEmail" type="email" class="form-control" disabled
+                            style="background:var(--g50);" />
+                        <span class="form-hint">Email không thể thay đổi</span>
+                    </div>
+                    <div id="profileErr" class="form-error" style="display:none;"></div>
+                    <button class="btn btn-primary btn-sm" onclick="saveProfile()">
+                        <span id="profileSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                        💾 Lưu thông tin
+                    </button>
+                </div>
+            </div>
+
+            <!-- Ngôn ngữ mặc định -->
+            <div class="profile-section">
+                <div class="profile-section-head">
+                    <span style="font-size:1rem;">🌐</span>
+                    <h4>Ngôn ngữ mặc định</h4>
+                </div>
+                <div class="profile-section-body">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                        <div class="form-group">
+                            <label class="form-label">🎤 Tôi nói</label>
+                            <select id="defSpeak" class="form-control"></select>
+                            <span class="form-hint">Whisper nhận diện giọng bạn</span>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">🔊 Tôi muốn nghe</label>
+                            <select id="defListen" class="form-control"></select>
+                            <span class="form-hint">AI dịch và đọc cho bạn</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="saveLangs()">
+                        <span id="langSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                        💾 Lưu ngôn ngữ
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cài đặt cuộc gọi -->
+            <div class="profile-section">
+                <div class="profile-section-head">
+                    <span style="font-size:1rem;">⚙️</span>
+                    <h4>Cài đặt cuộc gọi</h4>
+                </div>
+                <div class="profile-section-body">
+                    <div style="display:flex;flex-direction:column;gap:12px;">
+                        <div
+                            style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g50);border-radius:var(--r);">
+                            <div>
+                                <div style="font-size:.875rem;font-weight:500;">🔊 Giọng đọc AI (TTS)</div>
+                                <div style="font-size:.75rem;color:var(--g500);">Tự động phát giọng đọc bản dịch</div>
+                            </div>
+                            <span class="toggle on" id="settingTTS" onclick="this.classList.toggle('on')"></span>
+                        </div>
+                        <div
+                            style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g50);border-radius:var(--r);">
+                            <div>
+                                <div style="font-size:.875rem;font-weight:500;">💬 Phụ đề tự động</div>
+                                <div style="font-size:.75rem;color:var(--g500);">Hiển thị phụ đề dưới màn hình</div>
+                            </div>
+                            <span class="toggle on" id="settingSub" onclick="this.classList.toggle('on')"></span>
+                        </div>
+                        <div
+                            style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g50);border-radius:var(--r);">
+                            <div>
+                                <div style="font-size:.875rem;font-weight:500;">🎤 Tự vào phòng với mic bật</div>
+                                <div style="font-size:.75rem;color:var(--g500);">Bật micro ngay khi tham gia cuộc gọi
+                                </div>
+                            </div>
+                            <span class="toggle" id="settingAutoMic" onclick="this.classList.toggle('on')"></span>
+                        </div>
+                    </div>
+                    <div style="font-size:.75rem;color:var(--g400);margin-top:4px;">Cài đặt này được lưu trong trình
+                        duyệt của bạn</div>
+                    <button class="btn btn-ghost btn-sm" onclick="saveCallSettings()">💾 Lưu cài đặt</button>
+                </div>
+            </div>
+
+            <!-- Giao diện -->
+            <div class="profile-section">
+                <div class="profile-section-head">
+                    <span style="font-size:1rem;">🎨</span>
+                    <h4>Giao diện</h4>
+                </div>
+                <div class="profile-section-body">
+                    <div
+                        style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--g50);border-radius:var(--r);">
+                        <div>
+                            <div style="font-size:.875rem;font-weight:500;">🌙 Chế độ tối</div>
+                            <div style="font-size:.75rem;color:var(--g500);">Chưa hỗ trợ trong phiên bản này</div>
+                        </div>
+                        <span class="toggle" style="opacity:.4;pointer-events:none;"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Đăng xuất -->
+            <div class="profile-section">
+                <div class="profile-section-body">
+                    <button class="btn btn-danger w-full" onclick="confirmLogout()">🚪 Đăng xuất</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Confirm logout modal -->
+    <div id="modalLogout" class="modal-bg" onclick="if(event.target===this)closeModal('modalLogout')">
+        <div class="modal">
+            <div class="modal-head">
+                <h3>Đăng xuất?</h3><button class="x-btn" onclick="closeModal('modalLogout')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>Bạn sẽ cần đăng nhập lại lần sau.</p>
+            </div>
+            <div class="modal-foot">
+                <button class="btn btn-ghost" onclick="closeModal('modalLogout')">Hủy</button>
+                <button class="btn btn-danger" onclick="doLogout()">Đăng xuất</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="user.js"></script>
+    <script>
+        let user, langs = [];
+
+        async function init() {
+            user = U.require();
+            renderNav('profile.html');
+
+            const init = (user.full_name || 'U').charAt(0).toUpperCase();
+            document.getElementById('profileAvatar').textContent = init;
+            document.getElementById('profileName').textContent = user.full_name || '';
+            document.getElementById('profileEmail').textContent = user.email || '';
+            document.getElementById('editName').value = user.full_name || '';
+            document.getElementById('editEmail').value = user.email || '';
+
+            langs = await loadLangs();
+            const opts = langs.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+            document.getElementById('defSpeak').innerHTML = opts;
+            document.getElementById('defListen').innerHTML = opts;
+            document.getElementById('defSpeak').value = user.speaking_language || 'vi';
+            document.getElementById('defListen').value = user.listening_language || 'en';
+
+            // Load saved call settings
+            const cs = JSON.parse(localStorage.getItem('lm_settings') || '{}');
+            if (cs.tts === false) document.getElementById('settingTTS').classList.remove('on');
+            if (cs.sub === false) document.getElementById('settingSub').classList.remove('on');
+            if (cs.autoMic === true) document.getElementById('settingAutoMic').classList.add('on');
+        }
+
+        async function saveProfile() {
+            const name = document.getElementById('editName').value.trim();
+            const errEl = document.getElementById('profileErr');
+            errEl.style.display = 'none';
+            if (!name) { errEl.textContent = 'Vui lòng nhập họ tên'; errEl.style.display = 'block'; return; }
+
+            document.getElementById('profileSpin').style.display = 'inline-block';
+            document.getElementById('editName').disabled = true;
+
+            // Backend không có endpoint đổi tên — lưu local + thông báo
+            user.full_name = name;
+            U.save(user);
+            document.getElementById('profileAvatar').textContent = name.charAt(0).toUpperCase();
+            document.getElementById('profileName').textContent = name;
+            renderNav('profile.html');
+
+            document.getElementById('profileSpin').style.display = 'none';
+            document.getElementById('editName').disabled = false;
+            T.ok('Đã lưu', 'Tên hiển thị đã cập nhật (lưu cục bộ)');
+        }
+
+        async function saveLangs() {
+            const speak = document.getElementById('defSpeak').value;
+            const listen = document.getElementById('defListen').value;
+            document.getElementById('langSpin').style.display = 'inline-block';
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/languages`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speak, listening_language: listen })
+                });
+                if (!res.ok) throw new Error();
+                user.speaking_language = speak; user.listening_language = listen; U.save(user);
+                T.ok('Đã lưu ngôn ngữ', `Nói: ${speak} · Nghe: ${listen}`);
+            } catch (_) { T.err('Lỗi', 'Không thể lưu ngôn ngữ'); }
+            finally { document.getElementById('langSpin').style.display = 'none'; }
+        }
+
+        function saveCallSettings() {
+            const cs = {
+                tts: document.getElementById('settingTTS').classList.contains('on'),
+                sub: document.getElementById('settingSub').classList.contains('on'),
+                autoMic: document.getElementById('settingAutoMic').classList.contains('on'),
+            };
+            localStorage.setItem('lm_settings', JSON.stringify(cs));
+            T.ok('Đã lưu cài đặt', '');
+        }
+
+        function confirmLogout() { openModal('modalLogout'); }
+
+        init();
+    </script>
+</body>
+
+</html>

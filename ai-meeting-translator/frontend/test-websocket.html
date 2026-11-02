@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>WebSocket Test – AI Meeting Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
+
+        input {
+            padding: 6px 10px;
+            margin: 4px;
+            width: 180px;
+        }
+
+        button {
+            padding: 6px 14px;
+            margin: 4px;
+            cursor: pointer;
+        }
+
+        #log {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            margin-top: 16px;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+
+        .sys {
+            color: #888;
+        }
+
+        .in {
+            color: #1a7c2e;
+        }
+
+        .out {
+            color: #1a3a7c;
+        }
+
+        .err {
+            color: #c0392b;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🧪 WebSocket Test</h2>
+
+    <div>
+        <label>Room Code: <input id="roomCode" placeholder="ABC123" /></label>
+        <label>User ID: <input id="userId" type="number" placeholder="1" /></label>
+    </div>
+    <div>
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+        <button onclick="ping()">Ping</button>
+    </div>
+
+    <div style="margin-top:12px">
+        <input id="msgInput" placeholder="Nhập tin nhắn..." />
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+
+        function log(text, cls = '') {
+            const div = document.getElementById('log');
+            const line = document.createElement('div');
+            if (cls) line.className = cls;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            div.appendChild(line);
+            div.scrollTop = div.scrollHeight;
+        }
+
+        function connect() {
+            const roomCode = document.getElementById('roomCode').value.trim();
+            const userId = document.getElementById('userId').value.trim();
+            if (!roomCode || !userId) { alert('Nhập Room Code và User ID'); return; }
+            if (ws) { log('Đã có connection, hãy Disconnect trước.', 'err'); return; }
+
+            const url = `ws://127.0.0.1:8000/ws/rooms/${roomCode}/${userId}`;
+            log(`Đang kết nối tới ${url}...`, 'sys');
+            ws = new WebSocket(url);
+
+            ws.onopen = () => log('✅ Kết nối thành công!', 'in');
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'message') {
+                        log(`📨 User ${data.user_id}: ${data.message}`, 'in');
+                    } else if (data.type === 'user_joined') {
+                        log(`👋 User ${data.user_id} đã vào phòng`, 'sys');
+                    } else if (data.type === 'user_left') {
+                        log(`🚪 User ${data.user_id} đã rời phòng`, 'sys');
+                    } else if (data.type === 'pong') {
+                        log('🏓 Pong!', 'sys');
+                    } else if (data.type === 'error') {
+                        log(`❌ Lỗi: ${data.message}`, 'err');
+                    } else {
+                        log(`📦 ${event.data}`, 'sys');
+                    }
+                } catch {
+                    log(`📦 ${event.data}`, 'sys');
+                }
+            };
+
+            ws.onclose = () => { log('🔌 Đã ngắt kết nối.', 'sys'); ws = null; };
+            ws.onerror = (e) => log(`❌ WebSocket error`, 'err');
+        }
+
+        function disconnect() {
+            if (ws) { ws.close(); }
+            else { log('Chưa có connection.', 'err'); }
+        }
+
+        function sendMessage() {
+            const text = document.getElementById('msgInput').value.trim();
+            if (!text) return;
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Chưa kết nối!', 'err'); return;
+            }
+            ws.send(JSON.stringify({ type: 'message', message: text }));
+            log(`➡️ Bạn: ${text}`, 'out');
+            document.getElementById('msgInput').value = '';
+        }
+
+        function ping() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Chưa kết nối!', 'err'); return;
+            }
+            ws.send(JSON.stringify({ type: 'ping' }));
+            log('🏓 Ping gửi đi...', 'sys');
+        }
+
+        // Gửi bằng Enter
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('msgInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        });
+    </script>
+</body>
+
+</html>

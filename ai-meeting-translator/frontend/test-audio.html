@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Audio Test – AI Meeting Translator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 640px;
+            margin: 40px auto;
+            padding: 0 16px;
+        }
+
+        h2 {
+            margin-bottom: 4px;
+        }
+
+        .row {
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        input {
+            padding: 6px 10px;
+            width: 160px;
+        }
+
+        button {
+            padding: 6px 14px;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        #status,
+        #audioStatus {
+            font-weight: bold;
+            margin: 4px 0;
+        }
+
+        #log {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 280px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            margin-top: 12px;
+            font-size: 13px;
+            white-space: pre-wrap;
+        }
+
+        .sys {
+            color: #777;
+        }
+
+        .ok {
+            color: #1a7c2e;
+        }
+
+        .err {
+            color: #c0392b;
+        }
+
+        .audio {
+            color: #7c4a1a;
+        }
+
+        #audioContainer {
+            margin-top: 8px;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🎙️ AI Meeting Translator – Audio Test</h2>
+
+    <div class="row">
+        <label>Room Code: <input id="roomCode" placeholder="ABC123" /></label>
+        <label>User ID: <input id="userId" type="number" placeholder="1" /></label>
+    </div>
+    <div class="row">
+        <button id="btnConnect" onclick="connect()">Connect WebSocket</button>
+        <button id="btnDisconnect" onclick="disconnect()" disabled>Disconnect</button>
+    </div>
+
+    <div id="status">Status: Disconnected</div>
+
+    <hr />
+
+    <div class="row">
+        <button id="btnStart" onclick="startMic()" disabled>▶ Start Microphone</button>
+        <button id="btnStop" onclick="stopMic()" disabled>⏹ Stop Microphone</button>
+    </div>
+
+    <div id="audioStatus">Audio: –</div>
+
+    <div id="audioContainer">
+        <p style="margin:4px 0;font-size:13px;color:#555;">Received audio:</p>
+    </div>
+
+    <hr />
+
+    <h3 style="margin-bottom:4px;">📝 Live Transcript</h3>
+    <div id="transcript"
+        style="border:1px solid #aaa;padding:10px;height:160px;overflow-y:auto;background:#fff;font-size:14px;"></div>
+
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let micStream = null;
+
+        // ── Logging ──────────────────────────────────────────
+        function log(msg, cls = 'sys') {
+            const div = document.getElementById('log');
+            const el = document.createElement('div');
+            el.className = cls;
+            el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            div.appendChild(el);
+            div.scrollTop = div.scrollHeight;
+        }
+
+        // ── WebSocket ─────────────────────────────────────────
+        function connect() {
+            const roomCode = document.getElementById('roomCode').value.trim();
+            const userId = document.getElementById('userId').value.trim();
+            if (!roomCode || !userId) { alert('Nhập Room Code và User ID'); return; }
+            if (ws) { log('Đã có connection.', 'err'); return; }
+
+            const url = `ws://127.0.0.1:8000/ws/rooms/${roomCode}/${userId}`;
+            log(`Connecting to ${url}...`);
+            ws = new WebSocket(url);
+            ws.binaryType = 'arraybuffer'; // nhận binary dạng ArrayBuffer
+
+            ws.onopen = () => {
+                log('✅ Connection established', 'ok');
+                document.getElementById('status').textContent = 'Status: Connected';
+                document.getElementById('btnConnect').disabled = true;
+                document.getElementById('btnDisconnect').disabled = false;
+                document.getElementById('btnStart').disabled = false;
+            };
+
+            ws.onmessage = (event) => {
+                // Binary → audio chunk nhận được
+                if (event.data instanceof ArrayBuffer) {
+                    log(`🔊 Audio chunk received (${event.data.byteLength} bytes)`, 'audio');
+                    playAudioChunk(event.data);
+                    return;
+                }
+                // Text JSON
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'user_joined') log(`👋 User ${data.user_id} joined`, 'ok');
+                    else if (data.type === 'user_left') log(`🚪 User ${data.user_id} left`);
+                    else if (data.type === 'audio_start') log(`🎙️ User ${data.user_id} started audio`);
+                    else if (data.type === 'audio_stop') log(`🔇 User ${data.user_id} stopped audio`);
+                    else if (data.type === 'message') log(`💬 User ${data.user_id}: ${data.message}`, 'ok');
+                    else if (data.type === 'pong') log('🏓 Pong');
+                    else if (data.type === 'error') log(`❌ ${data.message}`, 'err');
+                    else if (data.type === 'transcript') {
+                        log(`📝 Transcript User ${data.user_id}: "${data.text}" [${data.language}]`, 'ok');
+                        addTranscript(data.user_id, data.text);
+                    }
+                    else log(event.data);
+                } catch { log(event.data); }
+            };
+
+            ws.onclose = () => {
+                log('🔌 Disconnected');
+                document.getElementById('status').textContent = 'Status: Disconnected';
+                document.getElementById('btnConnect').disabled = false;
+                document.getElementById('btnDisconnect').disabled = true;
+                document.getElementById('btnStart').disabled = true;
+                document.getElementById('btnStop').disabled = true;
+                ws = null;
+            };
+
+            ws.onerror = () => log('❌ WebSocket error', 'err');
+        }
+
+        function disconnect() {
+            stopMic();
+            if (ws) ws.close();
+        }
+
+        // ── Microphone ────────────────────────────────────────
+        async function startMic() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                log('Chưa kết nối WebSocket!', 'err'); return;
+            }
+            try {
+                micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            } catch (e) {
+                log('❌ Microphone permission denied', 'err');
+                document.getElementById('audioStatus').textContent = 'Audio: Microphone permission denied';
+                return;
+            }
+
+            // Chọn MIME type phù hợp
+            const mimeTypes = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/ogg;codecs=opus',
+                'audio/ogg',
+            ];
+            let mimeType = '';
+            for (const m of mimeTypes) {
+                if (MediaRecorder.isTypeSupported(m)) { mimeType = m; break; }
+            }
+
+            log(`🎙️ Microphone started (${mimeType || 'default'})`, 'ok');
+            document.getElementById('audioStatus').textContent = 'Audio: Microphone ON';
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnStop').disabled = false;
+
+            // Thông báo audio_start
+            ws.send(JSON.stringify({ type: 'audio_start', mime_type: mimeType }));
+
+            // Khởi tạo MediaRecorder, gửi chunk mỗi 250ms
+            const options = mimeType ? { mimeType } : {};
+            mediaRecorder = new MediaRecorder(micStream, options);
+
+            mediaRecorder.ondataavailable = async (e) => {
+                if (!e.data || e.data.size === 0) return;
+                if (!ws || ws.readyState !== WebSocket.OPEN) return;
+                // Tránh buffer quá lớn
+                if (ws.bufferedAmount > 1024 * 64) {
+                    log('⚠️ Buffer full, skipping chunk');
+                    return;
+                }
+                const arrayBuffer = await e.data.arrayBuffer();
+                ws.send(arrayBuffer);
+                log(`➡️ Audio chunk sent (${arrayBuffer.byteLength} bytes)`, 'audio');
+            };
+
+            mediaRecorder.start(250); // tạo chunk mỗi 250ms
+        }
+
+        function stopMic() {
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+            }
+            if (micStream) {
+                micStream.getTracks().forEach(t => t.stop());
+                micStream = null;
+            }
+            mediaRecorder = null;
+
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'audio_stop' }));
+            }
+
+            log('🔇 Microphone stopped');
+            document.getElementById('audioStatus').textContent = 'Audio: Microphone OFF';
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnStop').disabled = true;
+        }
+
+        // ── Audio Playback ────────────────────────────────────
+        // Gom các chunk vào queue và phát tuần tự
+        const audioQueue = [];
+        let currentMime = 'audio/webm;codecs=opus';
+        let isPlaying = false;
+
+        // Cập nhật mime type khi nhận audio_start từ server
+        ws && (ws._origOnMessage = ws.onmessage);
+
+        function playAudioChunk(arrayBuffer) {
+            audioQueue.push(arrayBuffer);
+            if (!isPlaying) playNext();
+        }
+
+        function playNext() {
+            if (audioQueue.length === 0) { isPlaying = false; return; }
+            isPlaying = true;
+            const buffer = audioQueue.shift();
+            const blob = new Blob([buffer], { type: currentMime || 'audio/webm' });
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.onended = () => { URL.revokeObjectURL(url); playNext(); };
+            audio.onerror = () => { URL.revokeObjectURL(url); playNext(); };
+            audio.play().catch(() => playNext());
+        }
+
+        // ── Transcript ────────────────────────────────────
+        function addTranscript(userId, text) {
+            const div = document.getElementById('transcript');
+            const line = document.createElement('div');
+            line.style.marginBottom = '4px';
+            line.innerHTML = `<strong>User ${userId}:</strong> ${text}`;
+            div.appendChild(line);
+            div.scrollTop = div.scrollHeight;
+        }
+    </script>
+    </script>
+</body>
+
+</html>

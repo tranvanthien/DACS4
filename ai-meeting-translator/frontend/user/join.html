@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <link rel="icon" href="../favicon.ico" />
+  <title>Tham gia cuộc họp — LinguaMeet</title>
+  <link rel="stylesheet" href="user.css" />
+  <style>
+    .join-container {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .join-card {
+      width: 100%;
+      max-width: 480px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--rl);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(20px);
+      padding: 32px 28px;
+    }
+
+    .join-brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .join-brand .brand-icon {
+      width: 42px;
+      height: 42px;
+      background: var(--grad);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      box-shadow: 0 0 25px rgba(99, 102, 241, 0.45);
+    }
+
+    .join-brand .brand-text {
+      font-size: 1.35rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #fff 40%, var(--purple-light));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.02em;
+    }
+
+    .room-badge-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 16px;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .room-badge-code {
+      font-family: monospace;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--cyan);
+      letter-spacing: 0.1em;
+      margin: 8px 0;
+      user-select: all;
+    }
+
+    .user-profile-strip {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(99, 102, 241, 0.08);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      border-radius: var(--r);
+      padding: 10px 14px;
+      margin-bottom: 20px;
+    }
+
+    .user-profile-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--grad);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .join-state-box {
+      text-align: center;
+      padding: 20px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="toast-container"></div>
+
+  <div class="join-container">
+    <div class="join-card">
+
+      <!-- Header Brand -->
+      <div class="join-brand">
+        <div class="brand-icon">🌐</div>
+        <div class="brand-text">LinguaMeet</div>
+      </div>
+
+      <!-- Loading State -->
+      <div id="stateLoading" class="join-state-box">
+        <div class="spin spin-md" style="margin: 0 auto 16px;"></div>
+        <div style="color:var(--text-muted);font-size:0.95rem;">Đang kiểm tra thông tin phòng họp...</div>
+      </div>
+
+      <!-- Error State (Invalid / Closed / Not Found) -->
+      <div id="stateError" class="join-state-box" style="display:none;">
+        <div style="font-size:3rem;margin-bottom:12px;" id="errIcon">⚠️</div>
+        <h3 style="font-size:1.15rem;margin-bottom:8px;" id="errTitle">Không thể tham gia</h3>
+        <p style="font-size:0.88rem;color:var(--text-muted);line-height:1.5;margin-bottom:24px;" id="errMsg">
+          Phòng họp không tồn tại hoặc đã bị đóng.
+        </p>
+        <a href="home.html" class="btn btn-primary w-full">Về trang chủ</a>
+      </div>
+
+      <!-- Unauthenticated State -->
+      <div id="stateGuest" style="display:none;">
+        <div class="room-badge-card">
+          <div style="font-size:0.75rem;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            Bạn được mời tham gia
+          </div>
+          <div style="font-size:1.1rem;font-weight:700;margin-top:4px;" id="guestRoomName">Phòng họp</div>
+          <div class="room-badge-code" id="guestRoomCode">------</div>
+          <div style="font-size:0.8rem;color:var(--text-muted);">
+            Trạng thái: <span class="badge badge-ok">🟢 Đang hoạt động</span>
+          </div>
+        </div>
+
+        <div style="background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:var(--r);padding:14px;margin-bottom:20px;font-size:0.85rem;color:#fef08a;line-height:1.45;">
+          ⚠️ Bạn cần đăng nhập tài khoản LinguaMeet để tham gia phòng họp và kích hoạt phiên dịch AI trực tiếp.
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-primary btn-lg w-full" id="btnGuestLogin">Đăng nhập ngay</button>
+          <button class="btn btn-ghost w-full" id="btnGuestReg">Tạo tài khoản mới</button>
+        </div>
+      </div>
+
+      <!-- Authenticated & Ready State -->
+      <div id="stateReady" style="display:none;">
+        <!-- User account bar -->
+        <div class="user-profile-strip">
+          <div class="user-profile-avatar" id="uAvatar">U</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:0.72rem;color:var(--text-sub);">Đang đăng nhập</div>
+            <div style="font-weight:600;font-size:0.92rem;color:var(--text-white);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" id="uFullName">Người dùng</div>
+          </div>
+          <button class="btn btn-ghost btn-xs" onclick="switchAccount()" title="Đổi tài khoản" style="font-size:0.75rem;">Đổi</button>
+        </div>
+
+        <!-- Room Information -->
+        <div class="room-badge-card">
+          <div style="font-size:0.75rem;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+            Mời tham gia phòng
+          </div>
+          <div style="font-size:1.15rem;font-weight:700;margin-top:4px;" id="readyRoomName">Phòng họp</div>
+          <div class="room-badge-code" id="readyRoomCode">------</div>
+          <div style="font-size:0.78rem;color:var(--text-sub);" id="readyHostInfo">Chủ phòng: Đang tải...</div>
+        </div>
+
+        <!-- Form fields: Display Name & Languages -->
+        <div class="form-group">
+          <label class="form-label">Tên hiển thị của bạn</label>
+          <input id="joinDisplayName" class="form-control" placeholder="Tên của bạn" />
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Tôi nói</label>
+            <select id="joinSpeakLang" class="form-control"></select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Tôi nghe</label>
+            <select id="joinListenLang" class="form-control"></select>
+          </div>
+        </div>
+
+        <div id="joinErr" class="form-error" style="display:none;margin-bottom:14px;"></div>
+
+        <!-- Actions -->
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-primary btn-lg w-full" id="btnConfirmJoin" onclick="confirmJoinRoom()">
+            <span id="joinSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+            Xác nhận vào phòng họp →
+          </button>
+          <button class="btn btn-ghost w-full" onclick="goToLobby()" style="justify-content:center;">
+            ⚙️ Kiểm tra micro & camera trước
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="user.js"></script>
+  <script>
+    let user = null;
+    let roomCode = '';
+    let roomData = null;
+    let langs = [];
+
+    async function initJoinPage() {
+      const p = new URLSearchParams(location.search);
+      roomCode = (p.get('room') || '').trim().toUpperCase();
+
+      if (!roomCode) {
+        showError('Thiếu mã phòng', 'Không tìm thấy thông tin mã phòng trong liên kết mời.', '🔍');
+        return;
+      }
+
+      // 1. Kiểm tra phòng tồn tại và còn active qua API thật
+      try {
+        const res = await fetch(`${API}/api/rooms/${encodeURIComponent(roomCode)}`);
+        if (res.status === 404) {
+          showError('Phòng không tồn tại', `Mã phòng "${roomCode}" không tồn tại hoặc đã bị xóa.`, '❌');
+          return;
+        }
+        if (!res.ok) {
+          showError('Lỗi kiểm tra phòng', 'Không thể xác thực thông tin phòng họp từ máy chủ.', '⚠️');
+          return;
+        }
+
+        roomData = await res.json();
+        if (!roomData.is_active) {
+          showError('Phòng họp đã đóng', `Phòng "${roomData.room_name || roomCode}" hiện đã kết thúc.`, '🔒');
+          return;
+        }
+      } catch (err) {
+        console.error('Fetch room error:', err);
+        showError('Lỗi kết nối', 'Không thể kết nối đến máy chủ LinguaMeet. Vui lòng kiểm tra lại mạng.', '📶');
+        return;
+      }
+
+      // 2. Kiểm tra trạng thái đăng nhập
+      user = U.load();
+
+      if (!user) {
+        // Chưa đăng nhập -> Hiển thị màn hình Guest yêu cầu login/register
+        document.getElementById('stateLoading').style.display = 'none';
+        document.getElementById('guestRoomName').textContent = roomData.room_name || `Phòng ${roomCode}`;
+        document.getElementById('guestRoomCode').textContent = roomCode;
+
+        const currentUrl = location.href;
+        document.getElementById('btnGuestLogin').onclick = () => {
+          location.href = `login.html?redirect=${encodeURIComponent(currentUrl)}`;
+        };
+        document.getElementById('btnGuestReg').onclick = () => {
+          location.href = `register.html?redirect=${encodeURIComponent(currentUrl)}`;
+        };
+
+        document.getElementById('stateGuest').style.display = 'block';
+        return;
+      }
+
+      // 3. Đã đăng nhập -> Chuẩn bị màn hình sẵn sàng vào phòng
+      document.getElementById('stateLoading').style.display = 'none';
+      document.getElementById('readyRoomName').textContent = roomData.room_name || `Phòng ${roomCode}`;
+      document.getElementById('readyRoomCode').textContent = roomCode;
+      document.getElementById('readyHostInfo').textContent = roomData.host_id === user.id ? '⭐ Bạn là chủ phòng' : `Mã phòng: ${roomCode}`;
+
+      // User info
+      document.getElementById('uFullName').textContent = user.full_name || user.email;
+      document.getElementById('uAvatar').textContent = (user.full_name || 'U').charAt(0).toUpperCase();
+      document.getElementById('joinDisplayName').value = user.full_name || '';
+
+      // Tải danh sách ngôn ngữ
+      try {
+        langs = await loadLangs();
+        const opts = langs.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+        document.getElementById('joinSpeakLang').innerHTML = opts;
+        document.getElementById('joinListenLang').innerHTML = opts;
+        document.getElementById('joinSpeakLang').value = user.speaking_language || 'vi';
+        document.getElementById('joinListenLang').value = user.listening_language || 'en';
+      } catch (e) {
+        console.error('Load langs error:', e);
+      }
+
+      document.getElementById('stateReady').style.display = 'block';
+    }
+
+    function showError(title, msg, icon = '⚠️') {
+      document.getElementById('stateLoading').style.display = 'none';
+      document.getElementById('stateGuest').style.display = 'none';
+      document.getElementById('stateReady').style.display = 'none';
+      document.getElementById('errIcon').textContent = icon;
+      document.getElementById('errTitle').textContent = title;
+      document.getElementById('errMsg').textContent = msg;
+      document.getElementById('stateError').style.display = 'block';
+    }
+
+    function switchAccount() {
+      U.clear();
+      location.href = `login.html?redirect=${encodeURIComponent(location.href)}`;
+    }
+
+    async function confirmJoinRoom() {
+      const dName = document.getElementById('joinDisplayName').value.trim() || user.full_name;
+      const speak = document.getElementById('joinSpeakLang').value;
+      const listen = document.getElementById('joinListenLang').value;
+      const btn = document.getElementById('btnConfirmJoin');
+      const spin = document.getElementById('joinSpin');
+      const errBox = document.getElementById('joinErr');
+
+      errBox.style.display = 'none';
+      btn.disabled = true;
+      spin.style.display = 'inline-block';
+
+      try {
+        // Cập nhật ngôn ngữ người dùng
+        await fetch(`${API}/api/users/${user.id}/languages`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ speaking_language: speak, listening_language: listen }),
+        });
+        user.speaking_language = speak;
+        user.listening_language = listen;
+        user.full_name = dName;
+        U.save(user);
+
+        // Ghi nhận tham gia phòng họp
+        const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join?user_id=${user.id}`, {
+          method: 'POST',
+        });
+        if (!joinRes.ok) {
+          const data = await joinRes.json().catch(() => ({}));
+          throw new Error(data.detail || 'Không thể tham gia phòng họp');
+        }
+
+        // Vào phòng họp trực tiếp
+        goRoom(roomCode, user.id, speak, listen, dName);
+      } catch (err) {
+        console.error('Join error:', err);
+        errBox.textContent = err.message || 'Lỗi khi tham gia phòng. Vui lòng thử lại.';
+        errBox.style.display = 'block';
+        btn.disabled = false;
+        spin.style.display = 'none';
+      }
+    }
+
+    function goToLobby() {
+      const speak = document.getElementById('joinSpeakLang').value;
+      const listen = document.getElementById('joinListenLang').value;
+      const p = new URLSearchParams({ room: roomCode, speakLang: speak, listenLang: listen });
+      location.href = `lobby.html?${p}`;
+    }
+
+    initJoinPage();
+  </script>
+</body>
+
+</html>

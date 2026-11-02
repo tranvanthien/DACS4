@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" href="favicon.ico" />
+    <title>AI Meeting Translator</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+
+    <!-- ── Toast container ──────────────────────────────────── -->
+    <div id="toast-container"></div>
+
+    <!-- ══════════════════════════════════════════════════════
+     AUTH SCREENS (Login / Register)
+     ══════════════════════════════════════════════════════ -->
+    <div id="authScreen"
+        style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--gradient-hero);padding:20px;">
+        <div
+            style="background:var(--surface);border-radius:var(--radius-xl);box-shadow:var(--shadow-lg);width:100%;max-width:420px;overflow:hidden;">
+
+            <!-- Tabs -->
+            <div style="display:flex;border-bottom:1px solid var(--gray-200);">
+                <button id="tabLogin" onclick="switchAuthTab('login')"
+                    style="flex:1;padding:16px;border:none;background:transparent;font-size:.9rem;font-weight:600;cursor:pointer;color:var(--primary);border-bottom:2px solid var(--primary);">
+                    Đăng nhập
+                </button>
+                <button id="tabRegister" onclick="switchAuthTab('register')"
+                    style="flex:1;padding:16px;border:none;background:transparent;font-size:.9rem;font-weight:500;cursor:pointer;color:var(--gray-500);border-bottom:2px solid transparent;">
+                    Đăng ký
+                </button>
+            </div>
+
+            <div style="padding:32px;">
+                <div style="text-align:center;margin-bottom:28px;">
+                    <div style="font-size:2.5rem;margin-bottom:8px;">🌐</div>
+                    <h2 style="font-size:1.3rem;">AI Meeting Translator</h2>
+                    <p style="font-size:.85rem;margin-top:4px;">Họp đa ngôn ngữ thời gian thực</p>
+                </div>
+
+                <!-- Login Form -->
+                <div id="loginForm">
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label">Email</label>
+                        <input id="loginEmail" type="email" class="form-control" placeholder="example@email.com" />
+                    </div>
+                    <div class="form-group" style="margin-bottom:20px;">
+                        <label class="form-label">Mật khẩu</label>
+                        <input id="loginPassword" type="password" class="form-control" placeholder="••••••••"
+                            onkeydown="if(event.key==='Enter')doLogin()" />
+                    </div>
+                    <div id="loginError" style="color:var(--danger);font-size:.8rem;margin-bottom:12px;display:none;">
+                    </div>
+                    <button id="btnLogin" class="btn btn-primary w-full btn-lg" onclick="doLogin()">
+                        <span id="loginSpinner" class="spinner spinner-sm hidden"></span>
+                        Đăng nhập
+                    </button>
+                </div>
+
+                <!-- Register Form -->
+                <div id="registerForm" style="display:none;">
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label">Họ và tên</label>
+                        <input id="regName" type="text" class="form-control" placeholder="Nguyễn Văn A" />
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label">Email</label>
+                        <input id="regEmail" type="email" class="form-control" placeholder="example@email.com" />
+                    </div>
+                    <div class="form-group" style="margin-bottom:14px;">
+                        <label class="form-label">Mật khẩu</label>
+                        <input id="regPassword" type="password" class="form-control" placeholder="••••••••" />
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+                        <div class="form-group">
+                            <label class="form-label">Ngôn ngữ nói</label>
+                            <select id="regSpeakLang" class="form-control"></select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Ngôn ngữ nghe</label>
+                            <select id="regListenLang" class="form-control"></select>
+                        </div>
+                    </div>
+                    <div id="regError" style="color:var(--danger);font-size:.8rem;margin-bottom:12px;display:none;">
+                    </div>
+                    <button id="btnRegister" class="btn btn-primary w-full btn-lg" onclick="doRegister()">
+                        <span id="regSpinner" class="spinner spinner-sm hidden"></span>
+                        Tạo tài khoản
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+     MAIN APP (Dashboard)
+     ══════════════════════════════════════════════════════ -->
+    <div id="appScreen" class="app-layout hidden">
+
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">🌐</div>
+                <div>
+                    <div class="brand-name">AI Meeting</div>
+                    <div class="brand-sub">Translator</div>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <div class="nav-section-label">Menu</div>
+                <a class="nav-item active" onclick="showSection('overview')" href="#">
+                    <span class="nav-icon">🏠</span> Tổng quan
+                </a>
+                <a class="nav-item" onclick="showSection('meetings')" href="#">
+                    <span class="nav-icon">📹</span> Cuộc họp
+                </a>
+                <a class="nav-item" onclick="showSection('history')" href="#">
+                    <span class="nav-icon">📋</span> Lịch sử
+                </a>
+
+                <div class="nav-section-label" style="margin-top:8px;">Công cụ</div>
+                <a class="nav-item" href="lobby.html">
+                    <span class="nav-icon">🚪</span> Phòng chờ
+                </a>
+                <a class="nav-item" href="transcript.html">
+                    <span class="nav-icon">📝</span> Phụ đề trực tiếp
+                </a>
+                <a class="nav-item" href="summary.html">
+                    <span class="nav-icon">🤖</span> Biên bản AI
+                </a>
+                <a class="nav-item" href="participants.html">
+                    <span class="nav-icon">👥</span> Thành viên
+                </a>
+                <a class="nav-item" href="languages.html">
+                    <span class="nav-icon">🌐</span> Ngôn ngữ
+                </a>
+
+                <div class="nav-section-label" style="margin-top:8px;">Hệ thống</div>
+                <a class="nav-item" onclick="showSection('settings')" href="#">
+                    <span class="nav-icon">⚙️</span> Cài đặt
+                </a>
+                <a class="nav-item" href="help.html">
+                    <span class="nav-icon">❓</span> Hỗ trợ
+                </a>
+            </nav>
+
+            <div class="sidebar-user">
+                <div class="avatar avatar-sm" id="sidebarAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="sidebarUserName">—</div>
+                    <div class="user-email" id="sidebarUserEmail">—</div>
+                </div>
+                <button class="btn-icon" title="Đăng xuất" onclick="doLogout()" style="margin-left:auto;">🚪</button>
+            </div>
+        </aside>
+
+        <!-- Main content -->
+        <div class="main-content">
+
+            <!-- Topbar -->
+            <header class="topbar">
+                <button class="btn-icon" id="btnSidebarToggle" onclick="toggleSidebar()"
+                    style="display:none;">☰</button>
+                <div class="topbar-search">
+                    <span style="color:var(--gray-400);">🔍</span>
+                    <input type="text" placeholder="Tìm cuộc họp..." id="searchInput" oninput="filterMeetings()" />
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn-icon" title="Thông báo" id="btnNotif">🔔</button>
+                    <div
+                        style="display:flex;align-items:center;gap:8px;padding-left:10px;border-left:1px solid var(--gray-200);">
+                        <div class="avatar avatar-sm" id="topbarAvatar">?</div>
+                        <span style="font-size:.85rem;font-weight:500;color:var(--gray-700);"
+                            id="topbarUserName">—</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content area -->
+            <div class="content-area">
+
+                <!-- ── Overview Section ────────────────────────────────── -->
+                <div id="section-overview">
+
+                    <!-- Hero -->
+                    <div class="hero-card">
+                        <div class="hero-content">
+                            <h2>Họp đa ngôn ngữ, không rào cản 🚀</h2>
+                            <p>AI tự động nhận diện giọng nói, dịch thuật và phát âm thanh theo thời gian thực. Kết nối
+                                với bất kỳ ai, bất kỳ ngôn ngữ nào.</p>
+                            <div class="hero-actions">
+                                <button class="btn-hero-primary" onclick="openModal('modalCreateRoom')">
+                                    ➕ Tạo cuộc họp
+                                </button>
+                                <button class="btn-hero-secondary" onclick="openModal('modalJoinRoom')">
+                                    🔗 Tham gia bằng mã
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon purple">📹</div>
+                            <div>
+                                <div class="stat-value" id="statTotalMeetings">—</div>
+                                <div class="stat-label">Tổng cuộc họp</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon blue">🕐</div>
+                            <div>
+                                <div class="stat-value" id="statActiveMeetings">—</div>
+                                <div class="stat-label">Đang hoạt động</div>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon green">🌐</div>
+                            <div>
+                                <div class="stat-value" id="statLanguages">8</div>
+                                <div class="stat-label">Ngôn ngữ hỗ trợ</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Features -->
+                    <div class="section-header">
+                        <span class="section-title">Tính năng nổi bật</span>
+                    </div>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">🎤</div>
+                            <div class="feature-name">STT thời gian thực</div>
+                            <div class="feature-desc">Nhận dạng giọng nói tức thì với Whisper AI</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🌍</div>
+                            <div class="feature-name">Dịch đa ngôn ngữ</div>
+                            <div class="feature-desc">Hỗ trợ 8 ngôn ngữ, dịch song song</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">🔊</div>
+                            <div class="feature-name">Giọng đọc AI</div>
+                            <div class="feature-desc">TTS tự nhiên qua gTTS / Edge TTS</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon">📹</div>
+                            <div class="feature-name">WebRTC P2P</div>
+                            <div class="feature-desc">Âm thanh chất lượng cao, độ trễ thấp</div>
+                        </div>
+                    </div>
+
+                    <!-- Recent meetings -->
+                    <div class="section-header">
+                        <span class="section-title">Cuộc họp gần đây</span>
+                        <button class="btn btn-ghost btn-sm" onclick="showSection('meetings')">Xem tất cả →</button>
+                    </div>
+                    <div class="meetings-card" id="recentMeetingsList">
+                        <div class="empty-state" style="padding:30px;">
+                            <div class="empty-icon">📋</div>
+                            <h4>Chưa có cuộc họp</h4>
+                            <p>Tạo hoặc tham gia phòng để bắt đầu</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Meetings Section ────────────────────────────────── -->
+                <div id="section-meetings" class="hidden">
+                    <div class="section-header" style="margin-bottom:16px;">
+                        <span class="section-title">Tất cả cuộc họp</span>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-primary btn-sm" onclick="openModal('modalCreateRoom')">➕ Tạo
+                                mới</button>
+                            <button class="btn btn-secondary btn-sm" onclick="openModal('modalJoinRoom')">🔗 Tham
+                                gia</button>
+                        </div>
+                    </div>
+                    <div class="meetings-card" id="allMeetingsList">
+                        <div class="empty-state" style="padding:30px;">
+                            <div class="empty-icon">📋</div>
+                            <h4>Chưa có cuộc họp nào</h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── History Section ────────────────────────────────── -->
+                <div id="section-history" class="hidden">
+                    <div class="section-header"><span class="section-title">Lịch sử cuộc họp</span></div>
+                    <div class="card" style="margin-top:8px;">
+                        <div class="card-body">
+                            <div class="empty-state">
+                                <div class="empty-icon">📜</div>
+                                <h4>Lịch sử trống</h4>
+                                <p>Lịch sử cuộc họp sẽ hiển thị tại đây</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ── Settings Section ───────────────────────────────── -->
+                <div id="section-settings" class="hidden">
+                    <div class="section-header"><span class="section-title">Cài đặt tài khoản</span></div>
+                    <div class="card" style="margin-top:8px;max-width:480px;">
+                        <div class="card-body" style="display:flex;flex-direction:column;gap:16px;">
+                            <div class="form-group">
+                                <label class="form-label">Ngôn ngữ bạn nói</label>
+                                <select id="settingSpeakLang" class="form-control"></select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Ngôn ngữ bạn muốn nghe</label>
+                                <select id="settingListenLang" class="form-control"></select>
+                            </div>
+                            <button class="btn btn-primary" onclick="saveSettings()">💾 Lưu cài đặt</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div><!-- /content-area -->
+        </div><!-- /main-content -->
+    </div><!-- /appScreen -->
+
+    <!-- ══════════════════════════════════════════════════════
+     MODAL: Tạo phòng
+     ══════════════════════════════════════════════════════ -->
+    <div id="modalCreateRoom" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>➕ Tạo cuộc họp mới</h3>
+                <button class="btn-close" onclick="closeModal('modalCreateRoom')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Tên cuộc họp</label>
+                    <input id="createRoomName" type="text" class="form-control" placeholder="VD: Daily Standup" />
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Ngôn ngữ bạn nói</label>
+                        <select id="createSpeakLang" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ngôn ngữ muốn nghe</label>
+                        <select id="createListenLang" class="form-control"></select>
+                    </div>
+                </div>
+                <div id="createRoomError" style="color:var(--danger);font-size:.8rem;display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('modalCreateRoom')">Hủy</button>
+                <button class="btn btn-primary" id="btnCreateRoom" onclick="doCreateRoom()">
+                    <span id="createRoomSpinner" class="spinner spinner-sm hidden"></span>
+                    Tạo phòng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+     MODAL: Tham gia phòng
+     ══════════════════════════════════════════════════════ -->
+    <div id="modalJoinRoom" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🔗 Tham gia cuộc họp</h3>
+                <button class="btn-close" onclick="closeModal('modalJoinRoom')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Mã phòng</label>
+                    <input id="joinRoomCode" type="text" class="form-control" placeholder="VD: ABC123"
+                        style="text-transform:uppercase;letter-spacing:.1em;font-family:monospace;font-size:1rem;"
+                        oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')doJoinRoom()" />
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Ngôn ngữ bạn nói</label>
+                        <select id="joinSpeakLang" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Ngôn ngữ muốn nghe</label>
+                        <select id="joinListenLang" class="form-control"></select>
+                    </div>
+                </div>
+                <div id="joinRoomError" style="color:var(--danger);font-size:.8rem;display:none;"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('modalJoinRoom')">Hủy</button>
+                <button class="btn btn-primary" id="btnJoinRoom" onclick="doJoinRoom()">
+                    <span id="joinRoomSpinner" class="spinner spinner-sm hidden"></span>
+                    Tham gia
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════
+     MODAL: Room created success
+     ══════════════════════════════════════════════════════ -->
+    <div id="modalRoomCreated" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <h3>🎉 Phòng đã được tạo!</h3>
+                <button class="btn-close" onclick="closeModal('modalRoomCreated')">✕</button>
+            </div>
+            <div class="modal-body" style="text-align:center;">
+                <div style="font-size:3rem;margin-bottom:12px;">🚀</div>
+                <p style="margin-bottom:16px;">Chia sẻ mã phòng bên dưới để mời người tham gia</p>
+                <div
+                    style="display:flex;align-items:center;justify-content:center;gap:10px;background:var(--primary-bg);padding:16px;border-radius:var(--radius-lg);">
+                    <span id="createdRoomCode"
+                        style="font-family:monospace;font-size:1.8rem;font-weight:700;color:var(--primary);letter-spacing:.15em;">—</span>
+                    <button class="btn btn-ghost btn-sm" id="btnCopyCode" onclick="copyRoomCode()">📋 Sao chép</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-ghost" onclick="closeModal('modalRoomCreated')">Đóng</button>
+                <button class="btn btn-primary" onclick="enterCreatedRoom()">Vào phòng họp →</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const SECTIONS = ['overview', 'meetings', 'history', 'settings'];
+        let currentUser = null;
+        let languages = [];
+        let allRooms = [];
+        let _pendingRoomCode = null;
+
+        // ── Init ────────────────────────────────────────────────────────────────
+        async function init() {
+            await loadLanguages();
+            const saved = Session.load();
+            if (saved && saved.id) {
+                currentUser = saved;
+                showApp();
+            }
+        }
+
+        async function loadLanguages() {
+            try {
+                const res = await fetch(API + '/api/languages');
+                if (res.ok) {
+                    languages = await res.json();
+                    populateLangSelects();
+                }
+            } catch (e) { console.warn('loadLanguages', e); }
+        }
+
+        function populateLangSelects() {
+            const opts = languages.map(l => `<option value="${l.code}">${l.flag || ''} ${l.name}</option>`).join('');
+            ['regSpeakLang', 'regListenLang', 'createSpeakLang', 'createListenLang',
+                'joinSpeakLang', 'joinListenLang', 'settingSpeakLang', 'settingListenLang'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = opts;
+                });
+            // Set defaults based on current user
+            if (currentUser) {
+                setSelectIfExists('settingSpeakLang', currentUser.speaking_language);
+                setSelectIfExists('settingListenLang', currentUser.listening_language);
+            }
+        }
+
+        function setSelectIfExists(id, val) {
+            const el = document.getElementById(id);
+            if (el && val) el.value = val;
+        }
+
+        // ── Auth Tab ─────────────────────────────────────────────────────────────
+        function switchAuthTab(tab) {
+            const isLogin = tab === 'login';
+            document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
+            document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
+            document.getElementById('tabLogin').style.color = isLogin ? 'var(--primary)' : 'var(--gray-500)';
+            document.getElementById('tabLogin').style.borderBottomColor = isLogin ? 'var(--primary)' : 'transparent';
+            document.getElementById('tabRegister').style.color = !isLogin ? 'var(--primary)' : 'var(--gray-500)';
+            document.getElementById('tabRegister').style.borderBottomColor = !isLogin ? 'var(--primary)' : 'transparent';
+        }
+
+        // ── Login ────────────────────────────────────────────────────────────────
+        async function doLogin() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errEl = document.getElementById('loginError');
+            errEl.style.display = 'none';
+            if (!email || !password) { showErr(errEl, 'Vui lòng nhập đầy đủ thông tin'); return; }
+
+            setLoading('btnLogin', 'loginSpinner', true);
+            try {
+                const res = await fetch(API + '/api/auth/login', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+                const data = await res.json();
+                if (!res.ok) { showErr(errEl, data.detail || 'Đăng nhập thất bại'); return; }
+                currentUser = data.user;
+                Session.save(currentUser);
+                showApp();
+                Toast.success('Chào mừng!', currentUser.full_name);
+            } catch (e) { showErr(errEl, 'Không kết nối được server'); }
+            finally { setLoading('btnLogin', 'loginSpinner', false); }
+        }
+
+        // ── Register ─────────────────────────────────────────────────────────────
+        async function doRegister() {
+            const errEl = document.getElementById('regError');
+            errEl.style.display = 'none';
+            const body = {
+                full_name: document.getElementById('regName').value.trim(),
+                email: document.getElementById('regEmail').value.trim(),
+                password: document.getElementById('regPassword').value,
+                speaking_language: document.getElementById('regSpeakLang').value,
+                listening_language: document.getElementById('regListenLang').value,
+            };
+            if (!body.full_name || !body.email || !body.password) {
+                showErr(errEl, 'Vui lòng nhập đầy đủ thông tin'); return;
+            }
+            setLoading('btnRegister', 'regSpinner', true);
+            try {
+                const res = await fetch(API + '/api/auth/register', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json();
+                if (!res.ok) { showErr(errEl, data.detail || 'Đăng ký thất bại'); return; }
+                Toast.success('Đăng ký thành công!', 'Vui lòng đăng nhập');
+                switchAuthTab('login');
+                document.getElementById('loginEmail').value = body.email;
+            } catch (e) { showErr(errEl, 'Không kết nối được server'); }
+            finally { setLoading('btnRegister', 'regSpinner', false); }
+        }
+
+        // ── Show App ─────────────────────────────────────────────────────────────
+        function showApp() {
+            document.getElementById('authScreen').style.display = 'none';
+            document.getElementById('appScreen').classList.remove('hidden');
+            updateUserUI();
+            populateLangSelects();
+            loadUserRooms();
+        }
+
+        function updateUserUI() {
+            if (!currentUser) return;
+            const initials = (currentUser.full_name || 'U').charAt(0).toUpperCase();
+            ['sidebarAvatar', 'topbarAvatar'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = initials;
+            });
+            document.getElementById('sidebarUserName').textContent = currentUser.full_name || '';
+            document.getElementById('sidebarUserEmail').textContent = currentUser.email || '';
+            document.getElementById('topbarUserName').textContent = currentUser.full_name || '';
+            setSelectIfExists('settingSpeakLang', currentUser.speaking_language);
+            setSelectIfExists('settingListenLang', currentUser.listening_language);
+        }
+
+        function doLogout() {
+            Session.clear();
+            currentUser = null;
+            document.getElementById('appScreen').classList.add('hidden');
+            document.getElementById('authScreen').style.display = 'flex';
+            allRooms = [];
+        }
+
+        // ── Navigation ───────────────────────────────────────────────────────────
+        function showSection(name) {
+            SECTIONS.forEach(s => {
+                const el = document.getElementById('section-' + s);
+                if (el) el.classList.toggle('hidden', s !== name);
+            });
+            document.querySelectorAll('.nav-item').forEach((el, i) => {
+                el.classList.toggle('active', SECTIONS[i] === name);
+            });
+            if (name === 'meetings') renderMeetingsList(allRooms, 'allMeetingsList');
+        }
+
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // ── Load rooms ───────────────────────────────────────────────────────────
+        async function loadUserRooms() {
+            if (!currentUser) return;
+            try {
+                const res = await fetch(`${API}/api/users/${currentUser.id}/rooms`);
+                if (!res.ok) return;
+                allRooms = await res.json();
+                updateStats();
+                renderMeetingsList(allRooms.slice(0, 5), 'recentMeetingsList');
+            } catch (e) { console.warn('loadUserRooms', e); }
+        }
+
+        function updateStats() {
+            document.getElementById('statTotalMeetings').textContent = allRooms.length;
+            document.getElementById('statActiveMeetings').textContent = allRooms.filter(r => r.is_active).length;
+        }
+
+        function renderMeetingsList(rooms, containerId) {
+            const el = document.getElementById(containerId);
+            if (!el) return;
+            if (!rooms || rooms.length === 0) {
+                el.innerHTML = `<div class="empty-state" style="padding:30px;"><div class="empty-icon">📋</div><h4>Chưa có cuộc họp</h4><p>Tạo hoặc tham gia phòng để bắt đầu</p></div>`;
+                return;
+            }
+            el.innerHTML = rooms.map(r => `
+      <div class="meeting-row" data-code="${esc(r.room_code)}">
+        <div class="meeting-icon">📹</div>
+        <div class="meeting-info">
+          <div class="meeting-name">${esc(r.room_name)}</div>
+          <div class="meeting-meta">
+            <span class="meeting-code">${esc(r.room_code)}</span>
+            &nbsp;·&nbsp; ${fmtDatetime(r.joined_at)}
+            ${r.host_id === currentUser?.id ? ' &nbsp;·&nbsp; <span style="color:var(--primary);font-size:.72rem;">Host</span>' : ''}
+          </div>
+        </div>
+        <div class="meeting-actions">
+          ${r.is_active
+                    ? `<span class="badge badge-success">Đang mở</span>`
+                    : `<span class="badge badge-gray">Đã đóng</span>`}
+          ${r.is_active
+                    ? `<button class="btn btn-primary btn-sm" onclick="enterRoom('${esc(r.room_code)}')">Vào phòng</button>`
+                    : ''}
+        </div>
+      </div>
+    `).join('');
+        }
+
+        function filterMeetings() {
+            const q = document.getElementById('searchInput').value.toLowerCase();
+            const filtered = allRooms.filter(r =>
+                r.room_name.toLowerCase().includes(q) || r.room_code.toLowerCase().includes(q)
+            );
+            renderMeetingsList(filtered.slice(0, 5), 'recentMeetingsList');
+        }
+
+        // ── Create Room ──────────────────────────────────────────────────────────
+        async function doCreateRoom() {
+            const errEl = document.getElementById('createRoomError');
+            errEl.style.display = 'none';
+            const name = document.getElementById('createRoomName').value.trim();
+            const speakLang = document.getElementById('createSpeakLang').value;
+            const listenLang = document.getElementById('createListenLang').value;
+            if (!name) { showErr(errEl, 'Vui lòng nhập tên cuộc họp'); return; }
+
+            setLoading('btnCreateRoom', 'createRoomSpinner', true);
+            try {
+                // Update languages first
+                await fetch(`${API}/api/users/${currentUser.id}/languages`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speakLang, listening_language: listenLang }),
+                });
+                // Create room
+                const res = await fetch(`${API}/api/rooms?host_id=${currentUser.id}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ room_name: name }),
+                });
+                const data = await res.json();
+                if (!res.ok) { showErr(errEl, data.detail || 'Tạo phòng thất bại'); return; }
+
+                const room = data.room;
+                // Auto-join
+                await fetch(`${API}/api/rooms/${room.room_code}/join?user_id=${currentUser.id}`, { method: 'POST' });
+
+                currentUser.speaking_language = speakLang;
+                currentUser.listening_language = listenLang;
+                Session.save(currentUser);
+
+                closeModal('modalCreateRoom');
+                _pendingRoomCode = room.room_code;
+                document.getElementById('createdRoomCode').textContent = room.room_code;
+                openModal('modalRoomCreated');
+                loadUserRooms();
+            } catch (e) { showErr(errEl, 'Lỗi kết nối server'); }
+            finally { setLoading('btnCreateRoom', 'createRoomSpinner', false); }
+        }
+
+        // ── Join Room ─────────────────────────────────────────────────────────────
+        async function doJoinRoom() {
+            const errEl = document.getElementById('joinRoomError');
+            errEl.style.display = 'none';
+            const code = document.getElementById('joinRoomCode').value.trim().toUpperCase();
+            const speakLang = document.getElementById('joinSpeakLang').value;
+            const listenLang = document.getElementById('joinListenLang').value;
+            if (!code) { showErr(errEl, 'Vui lòng nhập mã phòng'); return; }
+
+            setLoading('btnJoinRoom', 'joinRoomSpinner', true);
+            try {
+                // Update languages
+                await fetch(`${API}/api/users/${currentUser.id}/languages`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speakLang, listening_language: listenLang }),
+                });
+                // Join room
+                const res = await fetch(`${API}/api/rooms/${code}/join?user_id=${currentUser.id}`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) { showErr(errEl, data.detail || 'Không tham gia được phòng'); return; }
+
+                currentUser.speaking_language = speakLang;
+                currentUser.listening_language = listenLang;
+                Session.save(currentUser);
+                closeModal('modalJoinRoom');
+                loadUserRooms();
+                enterRoom(code);
+            } catch (e) { showErr(errEl, 'Lỗi kết nối server'); }
+            finally { setLoading('btnJoinRoom', 'joinRoomSpinner', false); }
+        }
+
+        function enterCreatedRoom() {
+            closeModal('modalRoomCreated');
+            if (_pendingRoomCode) enterRoom(_pendingRoomCode);
+        }
+
+        function enterRoom(code) {
+            const u = currentUser;
+            const url = `meeting.html?room=${encodeURIComponent(code)}&userId=${u.id}&speakLang=${u.speaking_language}&listenLang=${u.listening_language}&userName=${encodeURIComponent(u.full_name)}`;
+            window.location.href = url;
+        }
+
+        function copyRoomCode() {
+            copyToClipboard(_pendingRoomCode || '', document.getElementById('btnCopyCode'))
+                .then(ok => ok && Toast.success('Đã sao chép mã phòng!', _pendingRoomCode));
+        }
+
+        // ── Settings ──────────────────────────────────────────────────────────────
+        async function saveSettings() {
+            if (!currentUser) return;
+            const speakLang = document.getElementById('settingSpeakLang').value;
+            const listenLang = document.getElementById('settingListenLang').value;
+            try {
+                const res = await fetch(`${API}/api/users/${currentUser.id}/languages`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ speaking_language: speakLang, listening_language: listenLang }),
+                });
+                if (!res.ok) { Toast.error('Lỗi', 'Lưu thất bại'); return; }
+                currentUser.speaking_language = speakLang;
+                currentUser.listening_language = listenLang;
+                Session.save(currentUser);
+                Toast.success('Đã lưu!', 'Cài đặt ngôn ngữ đã được cập nhật');
+            } catch (e) { Toast.error('Lỗi kết nối', 'Không thể lưu cài đặt'); }
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────────
+        function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
+
+        function setLoading(btnId, spinnerId, loading) {
+            const btn = document.getElementById(btnId);
+            const sp = document.getElementById(spinnerId);
+            if (btn) btn.disabled = loading;
+            if (sp) sp.classList.toggle('hidden', !loading);
+        }
+
+        // ── Responsive sidebar ────────────────────────────────────────────────────
+        function handleResize() {
+            const isMobile = window.innerWidth < 768;
+            const btn = document.getElementById('btnSidebarToggle');
+            if (btn) btn.style.display = isMobile ? 'flex' : 'none';
+            if (!isMobile) document.getElementById('sidebar')?.classList.remove('open');
+        }
+        window.addEventListener('resize', handleResize);
+        handleResize();
+
+        init();
+    </script>
+</body>
+
+</html>

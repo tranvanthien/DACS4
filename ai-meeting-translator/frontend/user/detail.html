@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <link rel="icon" href="../favicon.ico" />
+    <title>Chi tiết cuộc họp — LinguaMeet</title>
+    <link rel="stylesheet" href="user.css" />
+</head>
+
+<body>
+    <div id="toast-container"></div>
+    <div class="app-shell">
+        <nav class="topnav" id="topnav"></nav>
+
+        <div class="page-wrap">
+            <div class="page-head">
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <a href="history.html" style="color:var(--g500);font-size:.85rem;">← Lịch sử</a>
+                    <h2 id="detailTitle">Chi tiết cuộc họp</h2>
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button class="btn btn-ghost btn-sm" onclick="copyContent()">📋 Sao chép</button>
+                    <button class="btn btn-ghost btn-sm" onclick="exportContent()">⬇ Tải xuống</button>
+                </div>
+            </div>
+
+            <!-- Info card -->
+            <div class="card">
+                <div style="padding:18px 20px;border-bottom:1px solid var(--g100);">
+                    <h4 style="font-size:.85rem;color:var(--g500);text-transform:uppercase;letter-spacing:.04em;">Thông
+                        tin phòng</h4>
+                </div>
+                <div style="padding:18px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;"
+                    id="infoGrid">
+                    <div style="padding:20px;text-align:center;"><span class="spin"></span></div>
+                </div>
+            </div>
+
+            <!-- Members -->
+            <div class="card" id="membersCard" style="display:none;">
+                <div
+                    style="padding:14px 18px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;">
+                    <h4 style="font-size:.9rem;">👥 Thành viên tham gia</h4>
+                    <span id="memberCountBadge" class="badge badge-primary">0</span>
+                </div>
+                <div id="membersList"></div>
+            </div>
+
+            <!-- AI Notice -->
+            <div
+                style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#fef3c7;border:1px solid var(--warn);border-radius:var(--r);font-size:.82rem;color:#92400e;">
+                ℹ️ Nội dung transcript chưa được lưu ở phiên bản này. Tính năng xem lại biên bản sẽ có trong bản cập
+                nhật tiếp theo.
+            </div>
+
+            <!-- Transcript placeholder -->
+            <div class="detail-transcript">
+                <div
+                    style="padding:14px 18px;border-bottom:1px solid var(--g100);display:flex;align-items:center;justify-content:space-between;">
+                    <h4 style="font-size:.9rem;">📝 Nội dung cuộc họp</h4>
+                    <span class="badge badge-gray">Chưa có dữ liệu</span>
+                </div>
+                <div class="empty-state" style="padding:36px;">
+                    <div class="empty-icon">📝</div>
+                    <h4>Chưa có nội dung</h4>
+                    <p>Backend chưa hỗ trợ lưu transcript. Tính năng này đang được phát triển.</p>
+                </div>
+            </div>
+
+            <!-- Rejoin button if active -->
+            <div id="rejoinBar" style="display:none;margin-top:16px;gap:10px;">
+                <button class="btn btn-primary btn-lg" style="flex:1;" onclick="rejoinRoom()">▶ Tham gia lại phòng này</button>
+                <button id="btnCloseRoom" class="btn btn-secondary btn-lg" style="color:var(--err);display:none;" onclick="closeThisRoom()">🔒 Đóng phòng này</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="user.js"></script>
+    <script>
+        let user, roomCode = '', roomData = null;
+
+        async function init() {
+            user = U.require();
+            renderNav('history.html');
+            roomCode = new URLSearchParams(location.search).get('room') || '';
+            if (!roomCode) { location.href = 'history.html'; return; }
+
+            try {
+                const [rRes, mRes] = await Promise.all([
+                    fetch(`${API}/api/rooms/${roomCode}`),
+                    fetch(`${API}/api/rooms/${roomCode}/members`),
+                ]);
+                if (!rRes.ok) throw new Error('Room not found');
+                roomData = await rRes.json();
+                const members = mRes.ok ? await mRes.json() : [];
+
+                document.getElementById('detailTitle').textContent = roomData.room_name;
+                document.title = `${roomData.room_name} — LinguaMeet`;
+
+                document.getElementById('infoGrid').innerHTML = [
+                    { label: 'Tên phòng', val: roomData.room_name },
+                    { label: 'Mã phòng', val: `<span style="font-family:monospace;font-weight:700;color:var(--p);">${x(roomData.room_code)}</span>` },
+                    { label: 'Trạng thái', val: roomData.is_active ? '<span class="badge badge-ok">Đang mở</span>' : '<span class="badge badge-gray">Đã đóng</span>' },
+                    { label: 'Thời gian tạo', val: fmtDT(roomData.created_at) },
+                    { label: 'Vai trò', val: roomData.host_id === user.id ? '<span class="badge badge-primary">Người tạo</span>' : '<span class="badge badge-gray">Thành viên</span>' },
+                    { label: 'Số thành viên', val: members.length + ' người' },
+                ].map(item => `
+        <div>
+          <div style="font-size:.72rem;color:var(--g500);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">${item.label}</div>
+          <div style="font-size:.9rem;font-weight:500;color:var(--g800);">${item.val}</div>
+        </div>
+      `).join('');
+
+                if (members.length) {
+                    document.getElementById('membersCard').style.display = 'block';
+                    document.getElementById('memberCountBadge').textContent = members.length;
+                    document.getElementById('membersList').innerHTML = members.map(m => `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 18px;border-bottom:1px solid var(--g100);">
+            <div class="avatar av-sm">${String(m.user_id).charAt(0)}</div>
+            <div style="flex:1;font-size:.85rem;">User ${m.user_id} ${m.user_id === user.id ? '<span style="font-size:.72rem;color:var(--p);">(Bạn)</span>' : ''}</div>
+            <span class="badge ${m.is_active ? 'badge-ok' : 'badge-gray'}">${m.is_active ? 'Online' : 'Offline'}</span>
+          </div>
+        `).join('');
+                }
+
+                if (roomData.is_active) {
+                    document.getElementById('rejoinBar').style.display = 'flex';
+                    if (roomData.host_id === user.id) {
+                        document.getElementById('btnCloseRoom').style.display = 'block';
+                    }
+                }
+            } catch (_) {
+                document.getElementById('infoGrid').innerHTML = `<div style="color:var(--err);padding:12px;">⚠ Không tìm thấy phòng</div>`;
+            }
+        }
+
+        
+        async function closeThisRoom() {
+            if (!confirm('Bạn có chắc chắn muốn đóng phòng họp này? Các thành viên khác sẽ không thể tham gia nữa.')) return;
+            try {
+                const res = await fetch(`${API}/api/rooms/${roomCode}/close?host_id=${user.id}`, { method: 'POST' });
+                if (res.ok) {
+                    T.ok('Đã đóng phòng', 'Phòng họp đã kết thúc');
+                    init();
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    T.err('Lỗi', d.detail || 'Không thể đóng phòng');
+                }
+            } catch (_) {
+                T.err('Lỗi kết nối', 'Không thể kết nối máy chủ');
+            }
+        }
+
+        function rejoinRoom() {
+            const p = new URLSearchParams({ room: roomCode, speakLang: user.speaking_language || 'vi', listenLang: user.listening_language || 'en' });
+            location.href = `lobby.html?${p}`;
+        }
+
+        function copyContent() {
+            if (!roomData) return;
+            const txt = `Phòng: ${roomData.room_name}\nMã: ${roomData.room_code}\nThời gian: ${fmtDT(roomData.created_at)}\nTrạng thái: ${roomData.is_active ? 'Đang mở' : 'Đã đóng'}`;
+            copyText(txt); T.ok('Đã sao chép', 'Thông tin phòng');
+        }
+
+        function exportContent() {
+            if (!roomData) return;
+            const blob = new Blob([`Chi tiết phòng họp LinguaMeet\n==============================\nTên: ${roomData.room_name}\nMã: ${roomData.room_code}\nThời gian: ${fmtDT(roomData.created_at)}\n`], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `meeting_${roomCode}.txt`; a.click();
+            T.ok('Đã tải xuống', '');
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
