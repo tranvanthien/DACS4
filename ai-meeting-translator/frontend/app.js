@@ -3,7 +3,7 @@
  * Toast notifications, modal helpers, language utils
  */
 
-const API = 'http://127.0.0.1:8000';
+const API = (typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http')) ? ((window.location.port === '8000' || window.location.port === '' || window.location.port === '80' || window.location.port === '443') ? (window.location.protocol + '//' + window.location.host) : (window.location.protocol + '//' + (window.location.hostname || '127.0.0.1') + ':8000')) : 'http://127.0.0.1:8000';
 
 // ── Toast ──────────────────────────────────────────────────────────────────
 const Toast = (() => {

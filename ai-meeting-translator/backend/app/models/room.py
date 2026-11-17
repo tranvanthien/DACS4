@@ -11,6 +11,7 @@ class Room(Base):
     host_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     is_active = Column(Boolean, default=True)
+    meeting_mode = Column(String(20), default="normal", nullable=False)
 
 
 class RoomMember(Base):

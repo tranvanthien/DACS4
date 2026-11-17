@@ -165,7 +165,31 @@
                     <input id="cName" class="form-control" placeholder="VD: Họp báo cáo tiến độ DACS4" autofocus 
                            onkeydown="if(event.key==='Enter')doCreate()" />
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+                <!-- Chọn chế độ cuộc họp -->
+                <div class="form-group">
+                    <label class="form-label" style="font-weight:600;">Chế độ cuộc họp</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <label class="mode-select-card" id="modeCardNormal" onclick="selectCreateMode('normal')" 
+                               style="cursor:pointer;border:2px solid var(--primary);background:rgba(99,102,241,0.08);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:5px;transition:all .2s;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-weight:700;font-size:.88rem;color:var(--text-main);">👥 Họp bình thường</span>
+                                <input type="radio" name="createMode" id="createModeNormal" value="normal" checked style="accent-color:var(--primary);" />
+                            </div>
+                            <span style="font-size:.74rem;color:var(--text-muted);line-height:1.35;">Video/audio WebRTC, chat, giơ tay, chia sẻ màn hình. Tắt AI để tối ưu máy chủ.</span>
+                        </label>
+                        <label class="mode-select-card" id="modeCardAI" onclick="selectCreateMode('ai')" 
+                               style="cursor:pointer;border:2px solid var(--border);background:var(--bg-sub);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:5px;transition:all .2s;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-weight:700;font-size:.88rem;color:var(--text-main);">🤖 Dịch thuật AI</span>
+                                <input type="radio" name="createMode" id="createModeAI" value="ai" style="accent-color:var(--primary);" />
+                            </div>
+                            <span style="font-size:.74rem;color:var(--text-muted);line-height:1.35;">Nhận diện giọng nói Whisper, dịch song ngữ thời gian thực và phát giọng đọc TTS.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="cLangGroup" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;opacity:0.5;pointer-events:none;">
                     <div class="form-group">
                         <label class="form-label">Ngôn ngữ tôi nói</label>
                         <select id="cSpeak" class="form-control"></select>
@@ -368,7 +392,7 @@
             try {
                 const res = await fetch(`${API}/api/users/${user.id}/languages`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: U.getAuthHeaders(),
                     body: JSON.stringify({ speaking_language: speak, listening_language: listen })
                 });
 
@@ -419,7 +443,7 @@
             try {
                 const res = await fetch(`${API}/api/users/${user.id}/languages`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: U.getAuthHeaders(),
                     body: JSON.stringify({ speaking_language: speak, listening_language: listen })
                 });
 
@@ -450,7 +474,7 @@
         async function loadRecent() {
             const el = document.getElementById('recentList');
             try {
-                const res = await fetch(`${API}/api/users/${user.id}/rooms`);
+                const res = await fetch(`${API}/api/users/${user.id}/rooms`, { headers: U.getAuthHeaders() });
                 if (!res.ok) throw new Error();
                 allRooms = await res.json();
 
@@ -514,6 +538,10 @@
                             <span class="clean-m-code" title="Nhấn để sao chép mã" onclick="copyText('${x(r.room_code)}', this)">
                                 📋 ${x(r.room_code)}
                             </span>
+                            &nbsp;·&nbsp;
+                            <span class="badge ${r.meeting_mode === 'ai' ? 'badge-primary' : 'badge-sub'}" style="font-size:.7rem;padding:2px 8px;">
+                                ${r.meeting_mode === 'ai' ? '🤖 Dịch thuật AI' : '👥 Họp thường'}
+                            </span>
                             &nbsp;·&nbsp; ${fmtDT(r.joined_at)}
                             ${r.host_id === user.id ? ' &nbsp;·&nbsp; <span style="color:var(--cyan);font-weight:600;">Chủ phòng</span>' : ''}
                         </div>
@@ -558,9 +586,37 @@
             location.href = `lobby.html?${p}`;
         }
 
+        // ── Select Mode Helper ────────────────────────────────────────────────
+        function selectCreateMode(mode) {
+            const isNormal = mode === 'normal';
+            document.getElementById('createModeNormal').checked = isNormal;
+            document.getElementById('createModeAI').checked = !isNormal;
+
+            const cardNormal = document.getElementById('modeCardNormal');
+            const cardAI = document.getElementById('modeCardAI');
+            if (isNormal) {
+                cardNormal.style.border = '2px solid var(--primary)';
+                cardNormal.style.background = 'rgba(99,102,241,0.08)';
+                cardAI.style.border = '2px solid var(--border)';
+                cardAI.style.background = 'var(--bg-sub)';
+            } else {
+                cardAI.style.border = '2px solid var(--primary)';
+                cardAI.style.background = 'rgba(99,102,241,0.08)';
+                cardNormal.style.border = '2px solid var(--border)';
+                cardNormal.style.background = 'var(--bg-sub)';
+            }
+
+            const langGrp = document.getElementById('cLangGroup');
+            if (langGrp) {
+                langGrp.style.opacity = isNormal ? '0.45' : '1';
+                langGrp.style.pointerEvents = isNormal ? 'none' : 'auto';
+            }
+        }
+
         // ── Create Room ───────────────────────────────────────────────────────
         async function doCreate() {
             const name = document.getElementById('cName').value.trim();
+            const mode = document.querySelector('input[name="createMode"]:checked')?.value || 'normal';
             const speak = document.getElementById('cSpeak').value;
             const listen = document.getElementById('cListen').value;
             const errEl = document.getElementById('cErr');
@@ -577,15 +633,15 @@
                 // Update language preferences
                 await fetch(`${API}/api/users/${user.id}/languages`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: U.getAuthHeaders(),
                     body: JSON.stringify({ speaking_language: speak, listening_language: listen })
                 });
 
-                // Create room
-                const res = await fetch(`${API}/api/rooms?host_id=${user.id}`, {
+                // Create room with chosen meeting_mode
+                const res = await fetch(`${API}/api/rooms`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_name: name })
+                    headers: U.getAuthHeaders(),
+                    body: JSON.stringify({ room_name: name, meeting_mode: mode })
                 });
                 const data = await res.json();
                 if (!res.ok) {
@@ -595,7 +651,7 @@
                 }
 
                 // Auto-join record
-                await fetch(`${API}/api/rooms/${data.room.room_code}/join?user_id=${user.id}`, { method: 'POST' });
+                await fetch(`${API}/api/rooms/${data.room.room_code}/join`, { method: 'POST', headers: U.getAuthHeaders() });
                 
                 user.speaking_language = speak;
                 user.listening_language = listen;

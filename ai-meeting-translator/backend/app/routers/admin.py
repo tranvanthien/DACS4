@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.dependencies import require_admin
+from app.core.security import create_access_token
 from app.models.user import User
 from app.models.room import Room, RoomMember
 from app.models.system_log import SystemLog
@@ -115,7 +116,13 @@ def admin_login(creds: AdminLoginRequest, db: Session = Depends(get_db)):
     return {
         "message": "Admin login successful",
         "user": UserResponse.model_validate(user),
-        "admin_key": settings.ADMIN_SECRET_KEY,
+        "access_token": create_access_token({
+            "sub": str(user.id),
+            "email": user.email,
+            "is_admin": True,
+            "role": "admin",
+        }),
+        "token_type": "bearer",
     }
 
 

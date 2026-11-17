@@ -1,0 +1,26 @@
+[Unit]
+Description=LinguaMeet AI Meeting Translator Service
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/linguameet/ai-meeting-translator/backend
+Environment="PATH=/var/www/linguameet/ai-meeting-translator/backend/venv/bin"
+EnvironmentFile=/var/www/linguameet/ai-meeting-translator/backend/.env
+
+# Chạy qua Gunicorn + UvicornWorker (1 worker duy nhất)
+ExecStart=/var/www/linguameet/ai-meeting-translator/backend/venv/bin/gunicorn app.main:app -c /var/www/linguameet/ai-meeting-translator/deploy/gunicorn_conf.py
+
+# Tự động restart khi crash
+Restart=always
+RestartSec=5s
+
+# Giới hạn tài nguyên
+LimitNOFILE=65535
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

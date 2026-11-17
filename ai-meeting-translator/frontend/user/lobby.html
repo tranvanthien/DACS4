@@ -63,7 +63,7 @@
             </div>
 
             <!-- Room info -->
-            <div class="room-info-box" id="roomInfoBox" style="display:none;">
+            <div class="room-info-box" id="roomInfoBox" style="display:none;align-items:center;gap:10px;">
                 <span style="font-size:1.2rem;">🏠</span>
                 <div style="flex:1;">
                     <div
@@ -73,6 +73,7 @@
                         style="font-family:monospace;font-size:1.1rem;font-weight:700;color:var(--cyan);letter-spacing:.05em;">
                         —</div>
                 </div>
+                <span id="roomModeBadge" class="badge badge-sub" style="font-size:.74rem;padding:4px 8px;">—</span>
                 <button class="btn btn-ghost btn-sm"
                     onclick="copyText(document.getElementById('roomCodeDisplay').textContent, this)">📋</button>
             </div>
@@ -84,14 +85,19 @@
             </div>
 
             <!-- Languages -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                <div class="form-group">
-                    <label class="form-label">Tôi nói</label>
-                    <select id="speakLang" class="form-control"></select>
+            <div id="lobbyLangSection">
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group">
+                        <label class="form-label">Tôi nói</label>
+                        <select id="speakLang" class="form-control"></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Tôi muốn nghe</label>
+                        <select id="listenLang" class="form-control"></select>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Tôi muốn nghe</label>
-                    <select id="listenLang" class="form-control"></select>
+                <div id="normalModeNotice" style="display:none;font-size:.76rem;color:var(--text-muted);margin-top:-6px;margin-bottom:12px;background:rgba(255,255,255,0.04);border-radius:6px;padding:6px 10px;border-left:3px solid var(--primary);">
+                    ℹ️ Phòng họp này ở chế độ <b>Họp bình thường</b>. Tính năng dịch thuật AI được tắt để tối ưu hóa hiệu năng máy chủ.
                 </div>
             </div>
 
@@ -126,7 +132,11 @@
     <script src="user.js"></script>
     <script>
         let user = null, langs = [], roomCode = '', camStream = null;
-        let micOn = false, camOn = false;
+        let micOn = true, camOn = false;
+
+        // Mic luôn mặc định BẬT — chỉ đọc lại preference cho camera
+        const _savedCam = sessionStorage.getItem('linguameet_pref_cam');
+        if (_savedCam !== null) camOn = (_savedCam === '1' || _savedCam === 'true');
 
         async function init() {
             user = U.require();
@@ -148,6 +158,28 @@
                 document.getElementById('roomCodeDisplay').textContent = roomCode;
                 document.getElementById('roomInfoBox').style.display = 'flex';
                 document.getElementById('lobbySubtitle').textContent = `Phòng: ${roomCode}`;
+
+                try {
+                    const rRes = await fetch(`${API}/api/rooms/${roomCode}`, { headers: U.getAuthHeaders() });
+                    if (rRes.ok) {
+                        const rData = await rRes.json();
+                        const mode = rData.meeting_mode || 'normal';
+                        const badge = document.getElementById('roomModeBadge');
+                        if (badge) {
+                            badge.textContent = mode === 'ai' ? '🤖 Dịch thuật AI' : '👥 Họp bình thường';
+                            badge.className = `badge ${mode === 'ai' ? 'badge-primary' : 'badge-sub'}`;
+                        }
+                        if (mode === 'normal') {
+                            const sec = document.getElementById('lobbyLangSection');
+                            if (sec) {
+                                sec.style.opacity = '0.6';
+                                sec.style.pointerEvents = 'none';
+                            }
+                            const notice = document.getElementById('normalModeNotice');
+                            if (notice) notice.style.display = 'block';
+                        }
+                    }
+                } catch (_) {}
             }
 
             // Network check
@@ -155,11 +187,48 @@
             net.textContent = navigator.onLine ? 'Tốt' : 'Mất mạng';
             net.className = `badge ${navigator.onLine ? 'badge-ok' : 'badge-err'}`;
 
+            // Đồng bộ trạng thái giao diện nút Mic ban đầu
+            const btnM = document.getElementById('btnMic');
+            if (btnM) {
+                btnM.className = `btn-icon ${micOn ? 'on' : 'off'}`;
+                btnM.textContent = micOn ? '🎤' : '🔇';
+            }
+            const lblM = document.getElementById('micLabel');
+            if (lblM) lblM.textContent = micOn ? 'Bật' : 'Tắt';
+
+            // Đồng bộ trạng thái giao diện nút Cam ban đầu
+            const btnC = document.getElementById('btnCam');
+            if (btnC) {
+                btnC.className = `btn-icon ${camOn ? 'on' : 'off'}`;
+                btnC.textContent = camOn ? '📹' : '📷';
+            }
+            const lblC = document.getElementById('camLabel');
+            if (lblC) lblC.textContent = camOn ? 'Bật' : 'Tắt';
+
+            // Nếu camera được lưu là bật -> thử kích hoạt preview
+            if (camOn) {
+                navigator.mediaDevices?.getUserMedia?.({ video: true, audio: false })
+                    .then(s => {
+                        camStream = s;
+                        const v = document.getElementById('previewVideo');
+                        if (v) { v.srcObject = camStream; v.style.display = 'block'; }
+                        const msg = document.getElementById('camOffMsg');
+                        if (msg) msg.style.display = 'none';
+                    })
+                    .catch(e => {
+                        console.warn('[lobby] cannot auto open cam preview:', e);
+                        camOn = false;
+                        sessionStorage.setItem('linguameet_pref_cam', '0');
+                        if (btnC) { btnC.className = 'btn-icon off'; btnC.textContent = '📷'; }
+                        if (lblC) lblC.textContent = 'Tắt';
+                    });
+            }
+
             // Mic permission check
             navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
                 s.getTracks().forEach(t => t.stop());
-                document.getElementById('micStatus').textContent = 'Sẵn sàng';
-                document.getElementById('micStatus').className = 'badge badge-ok';
+                document.getElementById('micStatus').textContent = micOn ? 'Sẵn sàng' : 'Đã tắt';
+                document.getElementById('micStatus').className = `badge ${micOn ? 'badge-ok' : 'badge-sub'}`;
             }).catch(() => {
                 document.getElementById('micStatus').textContent = 'Bị từ chối';
                 document.getElementById('micStatus').className = 'badge badge-err';
@@ -172,9 +241,13 @@
             btn.className = `btn-icon ${micOn ? 'on' : 'off'}`;
             btn.textContent = micOn ? '🎤' : '🔇';
             document.getElementById('micLabel').textContent = micOn ? 'Bật' : 'Tắt';
+            sessionStorage.setItem('linguameet_pref_mic', micOn ? '1' : '0');
             if (micOn) {
                 document.getElementById('micStatus').textContent = 'Đang dùng';
                 document.getElementById('micStatus').className = 'badge badge-ok';
+            } else {
+                document.getElementById('micStatus').textContent = 'Đã tắt';
+                document.getElementById('micStatus').className = 'badge badge-sub';
             }
         }
 
@@ -186,8 +259,11 @@
                     v.srcObject = camStream; v.style.display = 'block';
                     document.getElementById('camOffMsg').style.display = 'none';
                     camOn = true;
+                    sessionStorage.setItem('linguameet_pref_cam', '1');
                 } catch (e) {
                     T.err('Không mở được camera', e.name === 'NotAllowedError' ? 'Hãy cấp quyền camera trong trình duyệt' : e.message);
+                    camOn = false;
+                    sessionStorage.setItem('linguameet_pref_cam', '0');
                     return;
                 }
             } else {
@@ -196,6 +272,7 @@
                 document.getElementById('previewVideo').srcObject = null;
                 document.getElementById('camOffMsg').style.display = 'flex';
                 camOn = false;
+                sessionStorage.setItem('linguameet_pref_cam', '0');
             }
             const btn = document.getElementById('btnCam');
             btn.className = `btn-icon ${camOn ? 'on' : 'off'}`;
@@ -218,7 +295,7 @@
             try {
                 // 1. Cập nhật ngôn ngữ
                 await fetch(`${API}/api/users/${user.id}/languages`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    method: 'PUT', headers: U.getAuthHeaders(),
                     body: JSON.stringify({ speaking_language: speak, listening_language: listen })
                 });
                 user.speaking_language = speak; user.listening_language = listen; U.save(user);
@@ -226,14 +303,16 @@
                 // 2. Join phòng — BẮT BUỘC trước khi vào room.html
                 //    WebSocket endpoint kiểm tra is_active membership, thiếu bước này
                 //    backend sẽ từ chối với "User is not a member of this room"
-                const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join?user_id=${user.id}`, { method: 'POST' });
+                const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join`, { method: 'POST', headers: U.getAuthHeaders() });
                 if (!joinRes.ok) {
                     const err = await joinRes.json().catch(() => ({}));
                     throw new Error(err.detail || `Không thể tham gia phòng (${joinRes.status})`);
                 }
 
-                // 3. Chuyển sang phòng họp
-                goRoom(roomCode, user.id, speak, listen, dname);
+                // 3. Chuyển sang phòng họp kèm trạng thái cam/mic chính xác
+                sessionStorage.setItem('linguameet_pref_mic', micOn ? '1' : '0');
+                sessionStorage.setItem('linguameet_pref_cam', camOn ? '1' : '0');
+                goRoom(roomCode, user.id, speak, listen, dname, micOn, camOn);
             } catch (e) {
                 document.getElementById('lobbyErr').textContent = e.message || 'Lỗi kết nối máy chủ';
                 document.getElementById('lobbyErr').style.display = 'block';

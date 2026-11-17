@@ -89,8 +89,8 @@
 
             try {
                 const [rRes, mRes] = await Promise.all([
-                    fetch(`${API}/api/rooms/${roomCode}`),
-                    fetch(`${API}/api/rooms/${roomCode}/members`),
+                    fetch(`${API}/api/rooms/${roomCode}`, { headers: U.getAuthHeaders() }),
+                    fetch(`${API}/api/rooms/${roomCode}/members`, { headers: U.getAuthHeaders() }),
                 ]);
                 if (!rRes.ok) throw new Error('Room not found');
                 roomData = await rRes.json();
@@ -140,7 +140,7 @@
         async function closeThisRoom() {
             if (!confirm('Bạn có chắc chắn muốn đóng phòng họp này? Các thành viên khác sẽ không thể tham gia nữa.')) return;
             try {
-                const res = await fetch(`${API}/api/rooms/${roomCode}/close?host_id=${user.id}`, { method: 'POST' });
+                const res = await fetch(`${API}/api/rooms/${roomCode}/close`, { method: 'POST', headers: U.getAuthHeaders() });
                 if (res.ok) {
                     T.ok('Đã đóng phòng', 'Phòng họp đã kết thúc');
                     init();

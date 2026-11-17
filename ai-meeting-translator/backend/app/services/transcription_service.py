@@ -21,12 +21,27 @@ _executor = ThreadPoolExecutor(max_workers=4)
 
 
 def _find_ffmpeg() -> str:
+    # 1. Kiểm tra biến môi trường FFMPEG_PATH nếu được cấu hình
+    env_path = os.getenv("FFMPEG_PATH")
+    if env_path and os.path.isfile(env_path):
+        return env_path
+
+    # 2. Kiểm tra trong PATH hệ thống (Linux / macOS / Windows có PATH)
     found = shutil.which("ffmpeg")
     if found:
         return found
-    for path in [r"D:\ffmpeg\bin\ffmpeg.exe", r"C:\ffmpeg\bin\ffmpeg.exe"]:
+
+    # 3. Quét các đường dẫn cài đặt thông dụng trên Linux & Windows
+    candidate_paths = [
+        "/usr/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+        r"D:\ffmpeg\bin\ffmpeg.exe",
+    ]
+    for path in candidate_paths:
         if os.path.isfile(path):
             return path
+
     return "ffmpeg"
 
 FFMPEG = _find_ffmpeg()

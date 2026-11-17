@@ -338,7 +338,31 @@
                     <label class="form-label">Tên cuộc họp</label>
                     <input id="createRoomName" type="text" class="form-control" placeholder="VD: Daily Standup" />
                 </div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+
+                <!-- Chọn chế độ cuộc họp -->
+                <div class="form-group">
+                    <label class="form-label" style="font-weight:600;">Chế độ cuộc họp</label>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                        <label class="mode-card-opt" id="idxCardNormal" onclick="setIdxCreateMode('normal')" 
+                               style="cursor:pointer;border:2px solid var(--primary);background:rgba(99,102,241,0.08);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-weight:700;font-size:.85rem;">👥 Họp bình thường</span>
+                                <input type="radio" name="indexCreateMode" id="idxModeNormal" value="normal" checked style="accent-color:var(--primary);" />
+                            </div>
+                            <span style="font-size:.72rem;color:var(--text-muted);">WebRTC thoại & video, chia sẻ màn hình, chat. Tắt AI để tối ưu máy chủ.</span>
+                        </label>
+                        <label class="mode-card-opt" id="idxCardAI" onclick="setIdxCreateMode('ai')" 
+                               style="cursor:pointer;border:2px solid var(--border);background:var(--bg-sub);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:4px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;">
+                                <span style="font-weight:700;font-size:.85rem;">🤖 Dịch thuật AI</span>
+                                <input type="radio" name="indexCreateMode" id="idxModeAI" value="ai" style="accent-color:var(--primary);" />
+                            </div>
+                            <span style="font-size:.72rem;color:var(--text-muted);">Nhận diện giọng nói Whisper, dịch song ngữ và đọc AI TTS.</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div id="idxLangGroup" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;opacity:0.5;pointer-events:none;">
                     <div class="form-group">
                         <label class="form-label">Ngôn ngữ bạn nói</label>
                         <select id="createSpeakLang" class="form-control"></select>
@@ -637,11 +661,27 @@
             renderMeetingsList(filtered.slice(0, 5), 'recentMeetingsList');
         }
 
+        function setIdxCreateMode(mode) {
+            const isNorm = mode === 'normal';
+            document.getElementById('idxModeNormal').checked = isNorm;
+            document.getElementById('idxModeAI').checked = !isNorm;
+            document.getElementById('idxCardNormal').style.border = isNorm ? '2px solid var(--primary)' : '2px solid var(--border)';
+            document.getElementById('idxCardNormal').style.background = isNorm ? 'rgba(99,102,241,0.08)' : 'var(--bg-sub)';
+            document.getElementById('idxCardAI').style.border = !isNorm ? '2px solid var(--primary)' : '2px solid var(--border)';
+            document.getElementById('idxCardAI').style.background = !isNorm ? 'rgba(99,102,241,0.08)' : 'var(--bg-sub)';
+            const grp = document.getElementById('idxLangGroup');
+            if (grp) {
+                grp.style.opacity = isNorm ? '0.5' : '1';
+                grp.style.pointerEvents = isNorm ? 'none' : 'auto';
+            }
+        }
+
         // ── Create Room ──────────────────────────────────────────────────────────
         async function doCreateRoom() {
             const errEl = document.getElementById('createRoomError');
             errEl.style.display = 'none';
             const name = document.getElementById('createRoomName').value.trim();
+            const mode = document.querySelector('input[name="indexCreateMode"]:checked')?.value || 'normal';
             const speakLang = document.getElementById('createSpeakLang').value;
             const listenLang = document.getElementById('createListenLang').value;
             if (!name) { showErr(errEl, 'Vui lòng nhập tên cuộc họp'); return; }
@@ -653,10 +693,10 @@
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ speaking_language: speakLang, listening_language: listenLang }),
                 });
-                // Create room
+                // Create room with meeting_mode
                 const res = await fetch(`${API}/api/rooms?host_id=${currentUser.id}`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_name: name }),
+                    body: JSON.stringify({ room_name: name, meeting_mode: mode }),
                 });
                 const data = await res.json();
                 if (!res.ok) { showErr(errEl, data.detail || 'Tạo phòng thất bại'); return; }

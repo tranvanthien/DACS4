@@ -16,3 +16,4 @@ sacremoses==0.1.1
 aiofiles==23.2.1
 gtts==2.5.1
 psutil>=7.0.0
+PyJWT==2.9.0

@@ -22,6 +22,9 @@ class AudioRecorder {
         if (!speakingLanguage) throw new Error('SPEAKING_LANGUAGE_REQUIRED');
 
         // Xin quyền microphone
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('INSECURE_CONTEXT');
+        }
         try {
             this._stream = await navigator.mediaDevices.getUserMedia({
                 audio: {

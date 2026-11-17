@@ -3,20 +3,108 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>WebRTC Debug</title>
+    <title>WebRTC Audio & Video Debugger</title>
     <style>
+        * { box-sizing: border-box; }
         body {
             font-family: monospace;
-            padding: 20px;
-            background: #111;
-            color: #0f0;
+            padding: 16px;
+            background: #0f172a;
+            color: #f8fafc;
+            margin: 0;
+        }
+
+        h2 { margin: 0 0 8px 0; color: #38bdf8; font-size: 1.25rem; }
+        p { margin: 4px 0 12px 0; color: #94a3b8; font-size: 13px; }
+
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
         }
 
         button {
-            padding: 8px 16px;
-            margin: 4px;
+            padding: 8px 14px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
+            font-family: inherit;
+            font-weight: 600;
+            background: #1e293b;
+            color: #38bdf8;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            transition: all .15s ease;
+        }
+
+        button:hover {
+            background: #334155;
+            border-color: #38bdf8;
+        }
+
+        button.active {
+            background: #0284c7;
+            color: #fff;
+            border-color: #38bdf8;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .panel {
+            background: #111827;
+            border: 1px solid #1f2937;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .panel h3 {
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            color: #cbd5e1;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .video-box {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .vid-card {
+            background: #020617;
+            border: 1px solid #334155;
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 16/9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .vid-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .vid-card .tag {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            color: #38bdf8;
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            pointer-events: none;
         }
 
         #log {
@@ -24,162 +112,313 @@
             background: #000;
             padding: 12px;
             border-radius: 6px;
-            height: 400px;
+            height: 220px;
             overflow-y: auto;
             font-size: 12px;
-            margin-top: 12px;
+            border: 1px solid #222;
         }
 
-        .err {
-            color: #f44;
-        }
-
-        .ok {
-            color: #4f4;
-        }
-
-        .info {
-            color: #ff4;
-        }
+        .err { color: #f87171; }
+        .ok { color: #4ade80; }
+        .info { color: #38bdf8; }
+        .warn { color: #fbbf24; }
     </style>
 </head>
 
 <body>
-    <h2>WebRTC Audio Debug</h2>
-    <p>Mo 2 tab cung trang nay tren CUNG MAY. Tab 1 bam "Caller", Tab 2 bam "Callee".</p>
-    <p>Signaling qua <code>BroadcastChannel</code> — khong can server.</p>
+    <h2>WebRTC Audio & Dual-Video (Camera + Screen) Test</h2>
+    <p>Mở 2 tab cùng trang này trên trình duyệt. Tab 1 bấm "Caller (Tạo Offer)", Tab 2 bấm "Callee (Đợi Offer)".</p>
 
-    <button onclick="startCaller()">Tab 1: Caller (tao offer)</button>
-    <button onclick="startCallee()">Tab 2: Callee (nhan offer)</button>
-    <button onclick="clearLog()">Xoa log</button>
+    <div class="btn-group">
+        <button id="btnCaller" onclick="startCaller()">📞 Tab 1: Caller (Tạo Offer)</button>
+        <button id="btnCallee" onclick="startCallee()">🎧 Tab 2: Callee (Nhận Offer)</button>
+        <button id="btnCam" onclick="toggleCamera()">📷 Bật/Tắt Camera</button>
+        <button id="btnScreen" onclick="toggleScreen()">🖥️ Bật/Tắt Chia sẻ màn hình</button>
+        <button onclick="clearLog()">🗑️ Xóa log</button>
+    </div>
+
+    <div class="layout">
+        <div class="panel">
+            <h3>Local Streams (Của bạn)</h3>
+            <div class="video-box">
+                <div class="vid-card">
+                    <span class="tag">Local Cam</span>
+                    <video id="localCamVid" autoplay playsinline muted></video>
+                </div>
+                <div class="vid-card">
+                    <span class="tag">Local Screen</span>
+                    <video id="localScreenVid" autoplay playsinline muted></video>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Remote Streams (Từ đối tác)</h3>
+            <div class="video-box">
+                <div class="vid-card">
+                    <span class="tag">Remote Cam</span>
+                    <video id="remoteCamVid" autoplay playsinline muted></video>
+                </div>
+                <div class="vid-card">
+                    <span class="tag">Remote Screen</span>
+                    <video id="remoteScreenVid" autoplay playsinline muted></video>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="log"></div>
 
     <script>
-        var log = document.getElementById('log');
+        const log = document.getElementById('log');
         function L(msg, cls) {
-            var t = new Date().toLocaleTimeString('vi', { hour12: false });
-            var line = document.createElement('div');
+            const t = new Date().toLocaleTimeString('vi', { hour12: false });
+            const line = document.createElement('div');
             line.className = cls || '';
-            line.textContent = '[' + t + '] ' + msg;
+            line.textContent = `[${t}] ${msg}`;
             log.appendChild(line);
             log.scrollTop = log.scrollHeight;
         }
         function clearLog() { log.innerHTML = ''; }
 
-        // BroadcastChannel lam signaling giua 2 tab cung origin
-        var bc = new BroadcastChannel('webrtc-debug');
-
-        var pc = null;
-
-        var ICE = [
+        const bc = new BroadcastChannel('webrtc-av-debug');
+        const ICE = [
             { urls: 'stun:stun.l.google.com:19302' },
             { urls: 'stun:stun1.l.google.com:19302' },
+            { urls: 'stun:stun.cloudflare.com:3478' }
         ];
 
-        function createPC() {
+        let pc = null;
+        let isCaller = false;
+        let localMicStream = null;
+        let localCamStream = null;
+        let localScreenStream = null;
+
+        let camSender = null;
+        let screenSender = null;
+
+        function getOrCreatePC() {
+            if (pc) return pc;
             pc = new RTCPeerConnection({ iceServers: ICE });
 
-            pc.onicecandidate = function (e) {
+            pc.onicecandidate = (e) => {
                 if (e.candidate) {
-                    L('ICE candidate -> broadcast', 'info');
                     bc.postMessage({ type: 'ice', candidate: e.candidate.toJSON() });
                 } else {
-                    L('ICE gathering complete', 'ok');
+                    L('ICE gathering complete', 'info');
                 }
             };
 
-            pc.oniceconnectionstatechange = function () {
-                L('ICE state: ' + pc.iceConnectionState,
-                    pc.iceConnectionState === 'connected' ? 'ok' : 'info');
+            pc.oniceconnectionstatechange = () => {
+                L('ICE State: ' + pc.iceConnectionState,
+                    pc.iceConnectionState === 'connected' ? 'ok' :
+                    pc.iceConnectionState === 'failed' ? 'err' : 'info');
             };
 
-            pc.onconnectionstatechange = function () {
-                L('Connection state: ' + pc.connectionState,
+            pc.onconnectionstatechange = () => {
+                L('Connection State: ' + pc.connectionState,
                     pc.connectionState === 'connected' ? 'ok' :
-                        pc.connectionState === 'failed' ? 'err' : 'info');
+                    pc.connectionState === 'failed' ? 'err' : 'info');
             };
 
-            pc.ontrack = function (e) {
-                L('*** TRACK RECEIVED! Audio incoming ***', 'ok');
-                var audio = document.createElement('audio');
-                audio.autoplay = true;
-                audio.srcObject = e.streams[0];
-                document.body.appendChild(audio);
-                audio.play().then(function () {
-                    L('Audio playing!', 'ok');
-                }).catch(function (err) {
-                    L('Autoplay blocked: ' + err.message + ' -- Click anywhere to resume', 'err');
-                    document.addEventListener('click', function () {
-                        audio.play().catch(function () { });
-                    }, { once: true });
-                });
+            pc.ontrack = (e) => {
+                L(`Remote Track: kind=${e.track.kind} label="${e.track.label}" id=${e.track.id}`, 'ok');
+
+                if (e.track.kind === 'audio') {
+                    const audio = document.createElement('audio');
+                    audio.autoplay = true;
+                    audio.srcObject = new MediaStream([e.track]);
+                    document.body.appendChild(audio);
+                    audio.play().catch(err => L('Autoplay audio blocked: ' + err.message, 'warn'));
+                    return;
+                }
+
+                if (e.track.kind === 'video') {
+                    // Phân biệt camera vs screen share
+                    const s = (typeof e.track.getSettings === 'function' && e.track.getSettings()) || {};
+                    const isScreen = s.displaySurface || e.track.contentHint === 'detail' ||
+                                     /screen|window|display|màn hình/i.test(e.track.label);
+
+                    const targetVid = isScreen ? document.getElementById('remoteScreenVid') : document.getElementById('remoteCamVid');
+                    targetVid.srcObject = new MediaStream([e.track]);
+                    targetVid.muted = true;
+                    targetVid.play().catch(err => L('Autoplay video error: ' + err.message, 'warn'));
+                    L(`Assigned remote ${isScreen ? 'Screen' : 'Camera'} stream to video element`, 'ok');
+
+                    e.track.onended = () => {
+                        L(`Remote ${isScreen ? 'Screen' : 'Camera'} track ended`, 'warn');
+                        targetVid.srcObject = null;
+                    };
+                }
             };
 
             return pc;
         }
 
-        // Caller: xin mic -> tao offer -> broadcast
-        async function startCaller() {
-            L('=== CALLER START ===', 'ok');
+        async function renegotiate() {
+            if (!pc || pc.signalingState !== 'stable') {
+                L('Cannot renegotiate: state=' + (pc ? pc.signalingState : 'no-pc'), 'warn');
+                return;
+            }
             try {
-                var stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                L('Mic OK: ' + stream.getAudioTracks()[0].label, 'ok');
-                createPC();
-                stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
-                var offer = await pc.createOffer();
+                L('Renegotiating: creating new offer...', 'info');
+                const offer = await pc.createOffer();
                 await pc.setLocalDescription(offer);
-                L('Offer created, broadcasting...', 'info');
                 bc.postMessage({ type: 'offer', sdp: offer });
-            } catch (e) {
-                L('ERROR: ' + e.message, 'err');
+                L('Renegotiation offer broadcasted', 'info');
+            } catch (err) {
+                L('Renegotiation error: ' + err.message, 'err');
             }
         }
 
-        // Callee: nhan offer -> xin mic -> tao answer -> broadcast
-        bc.onmessage = async function (e) {
-            var msg = e.data;
-            L('Received: ' + msg.type, 'info');
+        async function startCaller() {
+            isCaller = true;
+            document.getElementById('btnCaller').classList.add('active');
+            L('=== CALLER STARTED ===', 'ok');
+            try {
+                localMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                L('Local Mic acquired: ' + localMicStream.getAudioTracks()[0].label, 'ok');
+                const p = getOrCreatePC();
+                localMicStream.getTracks().forEach(t => p.addTrack(t, localMicStream));
 
-            if (msg.type === 'offer') {
-                L('=== CALLEE: Got offer, getting mic... ===', 'ok');
+                const offer = await p.createOffer();
+                await p.setLocalDescription(offer);
+                L('Initial Offer created, broadcasting...', 'info');
+                bc.postMessage({ type: 'offer', sdp: offer });
+            } catch (err) {
+                L('Caller Error: ' + err.message, 'err');
+            }
+        }
+
+        function startCallee() {
+            isCaller = false;
+            document.getElementById('btnCallee').classList.add('active');
+            L('=== CALLEE READY: Waiting for offer... ===', 'ok');
+        }
+
+        async function toggleCamera() {
+            const btn = document.getElementById('btnCam');
+            const localVid = document.getElementById('localCamVid');
+            const p = getOrCreatePC();
+
+            if (!localCamStream) {
                 try {
-                    var stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-                    L('Mic OK: ' + stream.getAudioTracks()[0].label, 'ok');
-                    createPC();
-                    stream.getTracks().forEach(function (t) { pc.addTrack(t, stream); });
-                    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                    var answer = await pc.createAnswer();
-                    await pc.setLocalDescription(answer);
+                    localCamStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    const camTrack = localCamStream.getVideoTracks()[0];
+                    camTrack.contentHint = 'motion';
+                    localVid.srcObject = localCamStream;
+                    localVid.play().catch(() => {});
+                    btn.classList.add('active');
+                    L('Camera turned ON: ' + camTrack.label, 'ok');
+
+                    if (camSender) {
+                        await camSender.replaceTrack(camTrack);
+                        L('Replaced track on existing cam sender', 'info');
+                    } else {
+                        camSender = p.addTrack(camTrack, localCamStream);
+                        L('Added new cam track to PC', 'info');
+                        await renegotiate();
+                    }
+                } catch (err) {
+                    L('Camera error: ' + err.message, 'err');
+                }
+            } else {
+                if (camSender) {
+                    await camSender.replaceTrack(null);
+                    L('Silenced cam sender', 'info');
+                }
+                localCamStream.getTracks().forEach(t => t.stop());
+                localCamStream = null;
+                localVid.srcObject = null;
+                btn.classList.remove('active');
+                L('Camera turned OFF', 'warn');
+            }
+        }
+
+        async function toggleScreen() {
+            const btn = document.getElementById('btnScreen');
+            const localVid = document.getElementById('localScreenVid');
+            const p = getOrCreatePC();
+
+            if (!localScreenStream) {
+                try {
+                    localScreenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+                    const screenTrack = localScreenStream.getVideoTracks()[0];
+                    screenTrack.contentHint = 'detail';
+                    localVid.srcObject = localScreenStream;
+                    localVid.play().catch(() => {});
+                    btn.classList.add('active');
+                    L('Screen Share started: ' + screenTrack.label, 'ok');
+
+                    screenTrack.onended = () => {
+                        L('Screen Share ended by user UI', 'warn');
+                        toggleScreen();
+                    };
+
+                    if (screenSender) {
+                        await screenSender.replaceTrack(screenTrack);
+                        L('Replaced track on existing screen sender', 'info');
+                    } else {
+                        screenSender = p.addTrack(screenTrack, localScreenStream);
+                        L('Added new screen track to PC', 'info');
+                        await renegotiate();
+                    }
+                } catch (err) {
+                    L('Screen share error: ' + err.message, 'err');
+                }
+            } else {
+                if (screenSender) {
+                    await screenSender.replaceTrack(null);
+                    L('Silenced screen sender', 'info');
+                }
+                localScreenStream.getTracks().forEach(t => t.stop());
+                localScreenStream = null;
+                localVid.srcObject = null;
+                btn.classList.remove('active');
+                L('Screen Share stopped', 'warn');
+            }
+        }
+
+        bc.onmessage = async (e) => {
+            const msg = e.data;
+            if (msg.type === 'offer') {
+                L('Received Offer from peer', 'info');
+                try {
+                    const p = getOrCreatePC();
+                    if (!localMicStream) {
+                        try {
+                            localMicStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+                            localMicStream.getTracks().forEach(t => p.addTrack(t, localMicStream));
+                        } catch (_) { }
+                    }
+                    await p.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                    const answer = await p.createAnswer();
+                    await p.setLocalDescription(answer);
                     L('Answer created, broadcasting...', 'info');
                     bc.postMessage({ type: 'answer', sdp: answer });
                 } catch (err) {
-                    L('ERROR: ' + err.message, 'err');
+                    L('Error handling offer: ' + err.message, 'err');
                 }
-            }
-            else if (msg.type === 'answer') {
-                if (!pc) { L('No PC for answer', 'err'); return; }
-                try {
-                    await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
-                    L('Remote description set (answer)', 'ok');
-                } catch (err) {
-                    L('ERROR setRemoteDesc: ' + err.message, 'err');
+            } else if (msg.type === 'answer') {
+                L('Received Answer from peer', 'ok');
+                if (pc) {
+                    try {
+                        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+                        L('Remote description set successfully', 'ok');
+                    } catch (err) {
+                        L('Error setting remote desc: ' + err.message, 'err');
+                    }
                 }
-            }
-            else if (msg.type === 'ice') {
-                if (!pc) { L('No PC for ICE', 'err'); return; }
-                try {
-                    await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
-                    L('ICE candidate added', 'info');
-                } catch (err) {
-                    L('ERROR addIceCandidate: ' + err.message, 'err');
+            } else if (msg.type === 'ice') {
+                if (pc && pc.remoteDescription) {
+                    try {
+                        await pc.addIceCandidate(new RTCIceCandidate(msg.candidate));
+                    } catch (err) {
+                        L('Error adding ICE: ' + err.message, 'err');
+                    }
                 }
             }
         };
-
-        async function startCallee() {
-            L('=== CALLEE MODE: Waiting for offer... ===', 'ok');
-        }
     </script>
 </body>
 

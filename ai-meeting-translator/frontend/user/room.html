@@ -7,9 +7,18 @@
   <link rel="icon" href="../favicon.ico" />
   <title>Phòng họp — LinguaMeet</title>
   <link rel="stylesheet" href="user.css" />
+  <link rel="stylesheet" href="room-interactions.css" />
 </head>
 
 <body style="overflow:hidden;">
+  <!-- Banner mở khóa âm thanh toàn cục nếu bị trình duyệt chặn autoplay -->
+  <div id="globalAutoplayBanner"
+    style="display:none;position:fixed;top:65px;left:50%;transform:translateX(-50%);z-index:99999;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;padding:10px 22px;border-radius:30px;box-shadow:0 6px 20px rgba(0,0,0,0.4);font-weight:600;font-size:.85rem;align-items:center;gap:12px;cursor:pointer;"
+    onclick="WebRTCService.unlockAudio();this.style.display='none';">
+    <span>🔊 Trình duyệt đang chặn âm thanh. Nhấn vào đây để nghe mọi người nói</span>
+    <button class="btn btn-sm btn-white"
+      style="border-radius:16px;padding:3px 12px;font-size:.78rem;font-weight:700;">Bật âm thanh</button>
+  </div>
   <div id="toast-container"></div>
 
   <div class="room-shell">
@@ -26,6 +35,10 @@
           LinguaMeet
         </span>
         <span class="rcode" id="rcodeChip" onclick="copyRoomCode()" title="Nhấn để sao chép mã">📋 —</span>
+        <span class="badge badge-sub" id="roomModePill" onclick="toggleRoomMode()" title="Chế độ cuộc họp"
+          style="cursor:pointer;font-size:.76rem;padding:4px 10px;border-radius:12px;display:inline-flex;align-items:center;gap:4px;">
+          👥 Họp bình thường
+        </span>
         <button class="btn-invite-pill" onclick="openInviteModal()" title="Mời người khác tham gia">
           🔗 Mời tham gia
         </button>
@@ -111,6 +124,10 @@
         <div class="sidebar-tabs">
           <div class="sidebar-tab active" id="tab-trans" onclick="switchTab('trans')">🔤 Phiên dịch</div>
           <div class="sidebar-tab" id="tab-members" onclick="switchTab('members')">👥 Thành viên</div>
+          <div class="sidebar-tab" id="tab-chat" onclick="switchTab('chat')">
+            💬 Chat
+            <span id="chatTabBadge"></span>
+          </div>
         </div>
 
         <!-- ── PANE: Phiên dịch ── -->
@@ -169,6 +186,21 @@
           </div>
           <div class="rmp-list" id="rmpList">
             <div class="rmp-empty">Chưa có ai</div>
+          </div>
+        </div>
+
+        <!-- ── PANE: Chat ── -->
+        <div class="sidebar-pane" id="pane-chat">
+          <div id="chatMessages">
+            <div class="chat-empty-hint">
+              <div class="ce-icon">💬</div>
+              <div>Chưa có tin nhắn nào.<br>Hãy gửi tin nhắn đầu tiên!</div>
+            </div>
+          </div>
+          <div class="chat-input-bar">
+            <textarea id="chatInput" rows="1" placeholder="Nhập tin nhắn..." maxlength="2000"
+              onkeydown="chatKeyDown(event)"></textarea>
+            <button id="chatSendBtn" onclick="sendChatMessage()" title="Gửi (Enter)">➤</button>
           </div>
         </div>
 
@@ -247,6 +279,33 @@
           <span class="ctrl-label">Phụ đề</span>
         </div>
 
+        <!-- Raise Hand -->
+        <div class="ctrl-btn-wrap" id="wrapRaiseHand">
+          <button class="ctrl-btn" id="raiseHandBtn" onclick="toggleRaiseHand()" title="Giơ tay / Hạ tay">✋</button>
+          <span class="ctrl-label" id="raiseHandLabel">Giơ tay</span>
+        </div>
+
+        <!-- Reactions -->
+        <div class="ctrl-btn-wrap" id="wrapReact" style="position:relative;">
+          <button class="ctrl-btn" id="reactBtn" onclick="toggleReactPicker()" title="Thả cảm xúc">😊</button>
+          <span class="ctrl-label">Cảm xúc</span>
+          <div id="reactPicker">
+            <button class="react-emoji-btn" onclick="sendReaction('👍')" title="Thích">👍</button>
+            <button class="react-emoji-btn" onclick="sendReaction('❤️')" title="Yêu thích">❤️</button>
+            <button class="react-emoji-btn" onclick="sendReaction('😂')" title="Hài hước">😂</button>
+            <button class="react-emoji-btn" onclick="sendReaction('👏')" title="Vỗ tay">👏</button>
+            <button class="react-emoji-btn" onclick="sendReaction('😮')" title="Ngạc nhiên">😮</button>
+            <button class="react-emoji-btn" onclick="sendReaction('😢')" title="Buồn">😢</button>
+          </div>
+        </div>
+
+        <!-- Chat -->
+        <div class="ctrl-btn-wrap" id="wrapChat" style="position:relative;">
+          <button class="ctrl-btn" id="chatBtn" onclick="openChatPanel()" title="Chat trong cuộc họp">💬</button>
+          <span class="ctrl-label">Chat</span>
+          <span id="chatBadge">0</span>
+        </div>
+
         <!-- Invite -->
         <div class="ctrl-btn-wrap">
           <button class="ctrl-btn" id="inviteBtn" onclick="openInviteModal()"
@@ -273,6 +332,17 @@
 
   </div><!-- /.room-shell -->
 
+  <!-- Reactions floating overlay -->
+  <div id="reactionsOverlay"></div>
+
+  <!-- Raised hands list panel -->
+  <div id="handListPanel">
+    <div class="hand-panel-title">✋ Danh sách giơ tay</div>
+    <div id="handListContent">
+      <div class="hand-panel-empty">Không ai đang giơ tay</div>
+    </div>
+  </div>
+
   <script src="../qrcode.min.js"></script>
   <script src="../webrtc-service.js"></script>
   <script src="../auto-stt.js"></script>
@@ -283,7 +353,8 @@
     // ═══════════════════════════════════════════════════════════════════════════
     let user = null, roomCode = '', userName = 'Bạn';
     let currentSpeak = 'vi', currentListen = 'en';
-    let ws = null, roomPeers = [];
+    let ws = null, roomPeers = [], roomClosed = false;
+    let roomMode = 'normal', roomHostId = null;
     let ttsEnabled = true, ttsAudioStore = new Map(), pendingMsgIds = [], ttsQueue = [], ttsPlaying = false;
     let micOn = true, camOn = false, subVisible = true, panelVisible = true;
     let langList = [];
@@ -300,6 +371,22 @@
       currentSpeak = p.get('speakLang') || user.speaking_language || 'vi';
       currentListen = p.get('listenLang') || user.listening_language || 'en';
       userName = p.get('userName') || user.full_name || 'User';
+
+      // Đọc trạng thái khởi tạo cam và mic từ URL params hoặc sessionStorage
+      const pMic = p.get('mic');
+      const pCam = p.get('cam');
+      if (pMic !== null) {
+        micOn = (pMic === '1' || pMic === 'true');
+      } else {
+        const sMic = sessionStorage.getItem('linguameet_pref_mic');
+        micOn = (sMic === null || sMic === '1' || sMic === 'true');
+      }
+      if (pCam !== null) {
+        camOn = (pCam === '1' || pCam === 'true');
+      } else {
+        const sCam = sessionStorage.getItem('linguameet_pref_cam');
+        camOn = (sCam === '1' || sCam === 'true');
+      }
 
       if (!roomCode) { location.href = 'home.html'; return; }
 
@@ -327,6 +414,7 @@
       // Render own tile
       renderSelfTile();
       addMember(user.id, userName, currentSpeak, true);
+      updateMediaButtonsUI();
 
       // Subtitle language label
       updateSubLangLabel();
@@ -337,12 +425,23 @@
       // AI status (deferred)
       setTimeout(refreshAIStatus, 2000);
 
+      // Tải thông tin phòng để xác định chế độ (normal / ai) và host_id
+      try {
+        const rRes = await fetch(`${API}/api/rooms/${roomCode}`, { headers: U.getAuthHeaders() });
+        if (rRes.ok) {
+          const rData = await rRes.json();
+          applyRoomMode(rData.meeting_mode || 'normal', rData.host_id);
+        }
+      } catch (err) {
+        console.warn('[boot] load room info failed:', err);
+      }
+
       // Đảm bảo membership tồn tại trước khi kết nối WebSocket.
       // lobby.html đã gọi join, nhưng room.html có thể được vào từ nhiều đường khác
       // (link trực tiếp, reload trang, danh sách phòng). Gọi lại join là idempotent — 
       // backend chỉ tạo mới nếu chưa có record, hoặc reactivate nếu is_active=false.
       try {
-        const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join?user_id=${user.id}`, { method: 'POST' });
+        const joinRes = await fetch(`${API}/api/rooms/${roomCode}/join`, { method: 'POST', headers: U.getAuthHeaders() });
         if (!joinRes.ok) {
           const err = await joinRes.json().catch(() => ({}));
           // Phòng không tồn tại hoặc đã đóng — không nên vào
@@ -356,6 +455,197 @@
       }
 
       connectWS();
+    }
+
+    // ── Local Volume Meter (VAD) cho chế độ Họp bình thường ─────────────────
+    let _normalAudioCtx = null, _normalAnalyser = null, _normalVadTimer = null, _isLocalSpeaking = false;
+
+    function startNormalAudioMeter(stream) {
+      stopNormalAudioMeter();
+      if (!stream || !stream.getAudioTracks().length) return;
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        _normalAudioCtx = new AudioCtx();
+        const source = _normalAudioCtx.createMediaStreamSource(stream);
+        _normalAnalyser = _normalAudioCtx.createAnalyser();
+        _normalAnalyser.fftSize = 256;
+        source.connect(_normalAnalyser);
+
+        const dataArray = new Uint8Array(_normalAnalyser.frequencyBinCount);
+        let silenceTicks = 0;
+
+        function checkVolume() {
+          if (!_normalAnalyser) return;
+          _normalAnalyser.getByteFrequencyData(dataArray);
+          let sum = 0;
+          for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+          const avg = sum / dataArray.length;
+
+          // Phát hiện âm lượng giọng nói
+          if (avg > 14 && micOn) {
+            silenceTicks = 0;
+            if (!_isLocalSpeaking) {
+              _isLocalSpeaking = true;
+              setTalkingTile(user.id, true);
+              if (ws?.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'audio_start', user_id: user.id }));
+              }
+            }
+          } else {
+            silenceTicks++;
+            if (silenceTicks > 6 && _isLocalSpeaking) {
+              _isLocalSpeaking = false;
+              setTalkingTile(user.id, false);
+              if (ws?.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'audio_stop', user_id: user.id }));
+              }
+            }
+          }
+          _normalVadTimer = setTimeout(checkVolume, 100);
+        }
+        checkVolume();
+      } catch (e) {
+        console.warn('[VAD] Local audio meter failed:', e);
+      }
+    }
+
+    function stopNormalAudioMeter() {
+      if (_normalVadTimer) { clearTimeout(_normalVadTimer); _normalVadTimer = null; }
+      if (_isLocalSpeaking) {
+        _isLocalSpeaking = false;
+        setTalkingTile(user?.id, false);
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'audio_stop', user_id: user.id }));
+        }
+      }
+      if (_normalAudioCtx) {
+        try { _normalAudioCtx.close(); } catch (_) { }
+        _normalAudioCtx = null;
+        _normalAnalyser = null;
+      }
+    }
+
+    // Global click / keydown để unlock WebRTC audio
+    document.addEventListener('click', () => {
+      WebRTCService.unlockAudio?.();
+      const gBanner = document.getElementById('globalAutoplayBanner');
+      if (gBanner) gBanner.style.display = 'none';
+    });
+    document.addEventListener('keydown', () => {
+      WebRTCService.unlockAudio?.();
+      const gBanner = document.getElementById('globalAutoplayBanner');
+      if (gBanner) gBanner.style.display = 'none';
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ROOM MODE MANAGEMENT (Normal vs AI)
+    // ═══════════════════════════════════════════════════════════════════════════
+    function applyRoomMode(mode, hostId) {
+      if (hostId !== undefined) roomHostId = hostId;
+      roomMode = (mode === 'ai' || mode === 'ai_translation') ? 'ai' : 'normal';
+
+      const pill = document.getElementById('roomModePill');
+      const isHost = roomHostId && (user?.id === roomHostId);
+      if (pill) {
+        if (roomMode === 'ai') {
+          pill.className = 'badge badge-primary';
+          pill.innerHTML = `🤖 Dịch thuật AI ${isHost ? '<span style="font-size:.7rem;margin-left:4px;opacity:.8;">(Đổi ↻)</span>' : ''}`;
+          pill.title = isHost ? 'Nhấn để chuyển sang Họp bình thường' : 'Chế độ dịch thuật AI đang hoạt động';
+        } else {
+          pill.className = 'badge badge-sub';
+          pill.innerHTML = `👥 Họp bình thường ${isHost ? '<span style="font-size:.7rem;margin-left:4px;opacity:.8;">(Đổi ↻)</span>' : ''}`;
+          pill.title = isHost ? 'Nhấn để chuyển sang Họp dịch thuật AI' : 'Chế độ họp bình thường (tắt AI để tối ưu)';
+        }
+        pill.style.cursor = isHost ? 'pointer' : 'default';
+      }
+
+      // Xử lý AI components
+      const subBar = document.getElementById('subBar');
+      const langPill = document.getElementById('langPill');
+      const tpFeed = document.getElementById('tpFeed');
+
+      if (roomMode === 'normal') {
+        // Tắt STT ngay lập tức
+        AutoSTT.stop();
+        if (micOn && WebRTCService.localStream) {
+          startNormalAudioMeter(WebRTCService.localStream);
+        }
+        setTPStatus('idle', 'Chế độ họp bình thường');
+
+        // Ẩn thanh phụ đề
+        if (subBar) subBar.style.display = 'none';
+        if (langPill) langPill.style.display = 'none';
+
+        // Xóa hàng đợi TTS
+        ttsQueue.length = 0;
+        ttsPlaying = false;
+
+        // Banner thông báo trong feed dịch thuật
+        if (tpFeed && !document.getElementById('normalModeNoticeFeed')) {
+          const notice = document.createElement('div');
+          notice.id = 'normalModeNoticeFeed';
+          notice.style.cssText = 'padding:28px 16px;text-align:center;color:var(--text-muted);font-size:.85rem;background:rgba(255,255,255,0.02);border-radius:10px;margin-bottom:12px;border:1px dashed var(--border);';
+          notice.innerHTML = `
+            <div style="font-size:1.8rem;margin-bottom:6px;">👥</div>
+            <div style="font-weight:700;color:var(--text-main);margin-bottom:6px;">Chế độ Họp bình thường</div>
+            <div style="font-size:.76rem;line-height:1.4;color:var(--text-muted);">
+              Các tính năng nhận diện giọng nói (STT), dịch thuật và giọng đọc AI (TTS) đã được tắt hoàn toàn để tiết kiệm băng thông và tối ưu hiệu năng.
+            </div>
+            ${isHost ? '<button class="btn btn-secondary btn-sm" style="margin-top:12px;" onclick="toggleRoomMode()">⚡ Bật chế độ dịch thuật AI</button>' : ''}
+          `;
+          tpFeed.prepend(notice);
+        }
+      } else {
+        // Chế độ AI: dừng normal audio meter, gỡ bỏ banner
+        stopNormalAudioMeter();
+        const notice = document.getElementById('normalModeNoticeFeed');
+        if (notice) notice.remove();
+
+        if (subBar && subVisible) subBar.style.display = 'flex';
+        if (langPill) langPill.style.display = 'inline-flex';
+
+        // Nếu mic đang bật trong cuộc gọi -> start AutoSTT
+        if (WebRTCService.isInCall && micOn && WebRTCService.localStream) {
+          setTimeout(() => {
+            if (!AutoSTT.isRunning() && roomMode === 'ai') {
+              AutoSTT.start(WebRTCService.localStream, ws, currentSpeak);
+            }
+          }, 150);
+        }
+      }
+    }
+
+    async function toggleRoomMode() {
+      const isHost = roomHostId && (user?.id === roomHostId);
+      if (!isHost) {
+        T.warn('Quyền chủ phòng', 'Chỉ chủ phòng mới có thể thay đổi chế độ cuộc họp.');
+        return;
+      }
+
+      const targetMode = roomMode === 'ai' ? 'normal' : 'ai';
+      const targetName = targetMode === 'ai' ? 'Họp dịch thuật AI' : 'Họp bình thường';
+
+      if (!confirm(`Bạn có chắc muốn chuyển cuộc họp sang "${targetName}"?\nThay đổi sẽ được áp dụng đồng bộ ngay lập tức cho tất cả thành viên trong phòng.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/api/rooms/${roomCode}/mode`, {
+          method: 'PUT',
+          headers: U.getAuthHeaders(),
+          body: JSON.stringify({ meeting_mode: targetMode })
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || 'Không thể đổi chế độ');
+        }
+        const data = await res.json();
+        applyRoomMode(data.meeting_mode, user.id);
+        T.ok('Thành công', `Đã chuyển sang ${targetName}`);
+      } catch (e) {
+        T.err('Lỗi đổi chế độ', e.message);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -377,10 +667,23 @@
     // SIDEBAR TABS
     // ═══════════════════════════════════════════════════════════════════════════
     function switchTab(name) {
-      ['trans', 'members'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('active', t === name);
-        document.getElementById(`pane-${t}`).classList.toggle('active', t === name);
+      ['trans', 'members', 'chat'].forEach(t => {
+        const tabEl = document.getElementById(`tab-${t}`);
+        const paneEl = document.getElementById(`pane-${t}`);
+        if (tabEl) tabEl.classList.toggle('active', t === name);
+        if (paneEl) paneEl.classList.toggle('active', t === name);
       });
+      if (name === 'chat') {
+        _chatUnread = 0;
+        const b1 = document.getElementById('chatBadge');
+        const b2 = document.getElementById('chatTabBadge');
+        if (b1) b1.classList.remove('show');
+        if (b2) b2.classList.remove('show');
+        setTimeout(() => {
+          const msgs = document.getElementById('chatMessages');
+          if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        }, 50);
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -442,9 +745,21 @@
     // ═══════════════════════════════════════════════════════════════════════════
     function connectWS() {
       setWsPill('connecting');
-      ws = new WebSocket(`${WS_BASE}/ws/rooms/${roomCode}/${user.id}`);
+      const token = user.token || (new URLSearchParams(location.search)).get('token') || '';
+      const wsUrl = token
+        ? `${WS_BASE}/ws/rooms/${roomCode}/${user.id}?token=${encodeURIComponent(token)}`
+        : `${WS_BASE}/ws/rooms/${roomCode}/${user.id}`;
+      ws = new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
-      ws.onopen = () => { setWsPill('connected'); };
+      ws.onopen = () => {
+        setWsPill('connected');
+        // Tự động kích hoạt tham gia cuộc gọi để kết nối WebRTC ngay lập tức
+        setTimeout(() => {
+          if (!WebRTCService.isInCall) {
+            joinCall().catch(e => console.warn('[AutoJoin] call join deferred:', e));
+          }
+        }, 300);
+      };
       ws.onmessage = e => {
         if (e.data instanceof ArrayBuffer) {
           const buf = e.data;
@@ -458,7 +773,9 @@
       };
       ws.onclose = () => {
         setWsPill('error');
-        setTimeout(() => { if (!ws || ws.readyState === WebSocket.CLOSED) connectWS(); }, 3000);
+        if (!roomClosed) {
+          setTimeout(() => { if (!ws || ws.readyState === WebSocket.CLOSED) connectWS(); }, 3000);
+        }
       };
       ws.onerror = () => setWsPill('error');
     }
@@ -467,39 +784,28 @@
       switch (d.type) {
         case 'room_peers':
           roomPeers = d.peers || [];
+          // Dùng peer_infos nếu backend gửi kèm, tránh gọi /api/users/{id} → 403
+          const peerInfoMap = {};
+          if (d.peer_infos) d.peer_infos.forEach(p => { peerInfoMap[p.user_id] = p; });
           roomPeers.forEach(peerId => {
             if (peerId === user.id) return;
             if (_members.has(peerId)) return;
-            fetch(`${API}/api/users/${peerId}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(u => {
-                const name = u?.full_name || `User ${peerId}`;
-                const lang = u?.speaking_language || '?';
-                addPeerTile(peerId, name);
-                addMember(peerId, name, lang, false);
-              })
-              .catch(() => {
-                addPeerTile(peerId, `User ${peerId}`);
-                addMember(peerId, `User ${peerId}`, '?', false);
-              });
+            const info = peerInfoMap[peerId];
+            const name = info?.full_name || `User ${peerId}`;
+            const lang = info?.speaking_language || '?';
+            const avatarUrl = info?.avatar_url || null;
+            addMember(peerId, name, lang, false, avatarUrl);
+            addPeerTile(peerId, name);
           });
           break;
         case 'user_joined':
           if (d.user_id !== user.id) {
-            fetch(`${API}/api/users/${d.user_id}`)
-              .then(r => r.ok ? r.json() : null)
-              .then(u => {
-                const name = u?.full_name || `User ${d.user_id}`;
-                const lang = u?.speaking_language || '?';
-                addPeerTile(d.user_id, name);
-                addMember(d.user_id, name, lang, false);
-                T.info('Có người vào phòng', name);
-              })
-              .catch(() => {
-                addPeerTile(d.user_id, `User ${d.user_id}`);
-                addMember(d.user_id, `User ${d.user_id}`, '?', false);
-                T.info('Có người vào phòng', `User ${d.user_id}`);
-              });
+            const name = d.full_name || `User ${d.user_id}`;
+            const lang = d.speaking_language || '?';
+            const avatarUrl = d.avatar_url || null;
+            addMember(d.user_id, name, lang, false, avatarUrl);
+            addPeerTile(d.user_id, name);
+            T.info('Có người vào phòng', name);
           }
           break;
         case 'user_left':
@@ -509,9 +815,17 @@
           T.warn('Có người rời phòng', 'User ' + d.user_id);
           break;
         case 'room_closed':
+          roomClosed = true;
           T.warn('Phòng đã đóng', d.message || 'Cuộc họp đã kết thúc');
           if (ws) { ws.onclose = null; ws.close(); ws = null; }
           setTimeout(() => { location.href = 'home.html'; }, 2000);
+          break;
+        case 'room_mode':
+          applyRoomMode(d.meeting_mode, d.host_id);
+          break;
+        case 'room_mode_changed':
+          applyRoomMode(d.meeting_mode, d.changed_by);
+          T.ok('Chế độ phòng họp', d.message || 'Chế độ cuộc họp đã được cập nhật');
           break;
         case 'presenter_state':
           if (d.user_id !== user.id) onRemotePresenterState(d.user_id, d.mode);
@@ -525,14 +839,30 @@
         case 'audio_start': setTalkingTile(d.user_id, true); break;
         case 'audio_stop': setTalkingTile(d.user_id, false); break;
         case 'webrtc_ready':
-          if (WebRTCService.isInCall && d.user_id !== user.id && user.id < d.user_id) doOffer(d.user_id);
+          if (WebRTCService.isInCall && d.user_id !== user.id && !WebRTCService.hasPeer(d.user_id)) {
+            // Bên có id lớn hơn chủ động offer, bên nhỏ hơn đợi offer để tránh xung đột Glare
+            if (Number(user.id) > Number(d.user_id)) {
+              doOffer(d.user_id);
+            }
+          }
           break;
         case 'webrtc_offer':
-          if (WebRTCService.isInCall) { WebRTCService.setWebSocket(ws); WebRTCService.handleOffer(d.from_user_id, d.sdp); }
+          WebRTCService.setWebSocket(ws);
+          WebRTCService.handleOffer(d.from_user_id, d.sdp);
           break;
         case 'webrtc_answer': WebRTCService.handleAnswer(d.from_user_id, d.sdp); break;
         case 'webrtc_ice_candidate': WebRTCService.handleIceCandidate(d.from_user_id, d.candidate); break;
+        case 'webrtc_track_state': WebRTCService.handleTrackState?.(d.from_user_id, { camera: d.camera, screen: d.screen }); break;
+        case 'webrtc_track_meta': WebRTCService.handleTrackMeta?.(d.from_user_id, { track_id: d.track_id, kind: d.kind }); break;
         case 'webrtc_leave': WebRTCService.handlePeerLeft?.(d.user_id); removePeerTile(d.user_id); break;
+        case 'raise_hand':
+          onRaiseHand(d); break;
+        case 'raised_hands_state':
+          onRaisedHandsState(d); break;
+        case 'reaction':
+          onReaction(d); break;
+        case 'chat_message':
+          onChatMessage(d); break;
         case 'error': {
           const fatalErrors = ['User is not a member of this room', 'Room not found', 'Room is closed', 'User not found'];
           if (fatalErrors.includes(d.message)) {
@@ -643,13 +973,14 @@
       }
 
       const isLocal = picked.id === 'self-screen' || picked.id === 'self-camera';
-      const name = isLocal ? userName : (_members.get(Number(picked.id))?.name || `User ${picked.id}`);
+      const pId = picked.peerId || (picked.id.startsWith('self') ? user.id : picked.id.split('-')[0]);
+      const name = isLocal ? userName : (_members.get(Number(pId))?.name || `User ${pId}`);
       labelEl.textContent = picked.kind === 'screen'
         ? `🖥️ ${name} đang chia sẻ màn hình`
         : `📹 ${name} đang trình bày`;
       stage.dataset.presenterType = picked.kind;
       stage.classList.add('presenter-mode');
-      video.muted = isLocal;
+      video.muted = true;
       if (video.srcObject !== picked.stream) { video.srcObject = picked.stream; }
       video.play().catch(() => { });
       video.classList.toggle('is-screen', picked.kind === 'screen');
@@ -676,9 +1007,12 @@
       if (document.getElementById('tile-self')) return;
       const t = document.createElement('div');
       t.className = 'vid-tile'; t.id = 'tile-self';
+      const selfAvatar = user && user.avatar_url
+        ? `<img src="${API}${user.avatar_url}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
+        : `<div class="vav">${userName.charAt(0).toUpperCase()}</div>`;
       t.innerHTML = `
         <div class="vid-placeholder">
-          <div class="vav">${userName.charAt(0).toUpperCase()}</div>
+          ${selfAvatar}
           <div class="vname">${x(userName)} (Bạn)</div>
         </div>
         <div class="vid-tile-bottom">
@@ -696,11 +1030,15 @@
       const g = document.getElementById('videoGrid');
       if (document.getElementById(`tile-${peerId}`)) return;
       const name = peerName || _members.get(peerId)?.name || `User ${peerId}`;
+      const peerAvatarUrl = _members.get(peerId)?.avatar_url || null;
+      const peerAvatar = peerAvatarUrl
+        ? `<img src="${API}${peerAvatarUrl}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
+        : `<div class="vav">${name.charAt(0).toUpperCase()}</div>`;
       const t = document.createElement('div');
       t.className = 'vid-tile'; t.id = `tile-${peerId}`;
       t.innerHTML = `
         <div class="vid-placeholder">
-          <div class="vav">${name.charAt(0).toUpperCase()}</div>
+          ${peerAvatar}
           <div class="vname">${x(name)}</div>
         </div>
         <div class="vid-tile-bottom">
@@ -782,10 +1120,10 @@
     // ═══════════════════════════════════════════════════════════════════════════
     // MEMBERS PANEL
     // ═══════════════════════════════════════════════════════════════════════════
-    const _members = new Map(); // uid → { name, lang, isMe }
+    const _members = new Map(); // uid → { name, lang, isMe, avatar_url }
 
-    function addMember(uid, name, lang, isMe) {
-      _members.set(uid, { name, lang, isMe });
+    function addMember(uid, name, lang, isMe, avatarUrl) {
+      _members.set(uid, { name, lang, isMe, avatar_url: avatarUrl || null });
       renderMembers();
       updateParticipantCount();
     }
@@ -816,12 +1154,42 @@
     // ═══════════════════════════════════════════════════════════════════════════
     // WEBRTC
     // ═══════════════════════════════════════════════════════════════════════════
+    function updateMediaButtonsUI() {
+      const micBtn = document.getElementById('micBtn');
+      const micLabel = document.getElementById('micLabel');
+      const selfMicIcon = document.getElementById('selfMicIcon');
+      if (micBtn) {
+        micBtn.classList.toggle('off', !micOn);
+        micBtn.textContent = micOn ? '🎤' : '🔇';
+      }
+      if (micLabel) {
+        micLabel.textContent = micOn ? 'Mic' : 'Tắt mic';
+      }
+      if (selfMicIcon) {
+        selfMicIcon.textContent = micOn ? '🎤' : '🔇';
+        selfMicIcon.classList.toggle('muted', !micOn);
+      }
+
+      const camBtn = document.getElementById('camBtn');
+      const camLabel = document.getElementById('camLabel');
+      if (camBtn) {
+        camBtn.classList.toggle('active', !!camOn);
+        camBtn.textContent = camOn ? '📹' : '📷';
+      }
+      if (camLabel) {
+        camLabel.textContent = camOn ? 'Tắt cam' : 'Camera';
+      }
+    }
+
     async function joinCall() {
       if (!ws || ws.readyState !== WebSocket.OPEN) { T.err('Chưa kết nối', 'Đang chờ kết nối máy chủ...'); return; }
       WebRTCService.setWebSocket(ws);
       try {
-        const peersToOffer = roomPeers.filter(id => id > user.id);
-        await WebRTCService.joinCall(user.id, peersToOffer);
+        const peersToOffer = roomPeers.filter(id => id !== user.id);
+        await WebRTCService.joinCall(user.id, peersToOffer, {
+          initialMic: micOn,
+          initialCam: camOn
+        });
       } catch (e) { T.err('Không vào được cuộc gọi', e.message); }
     }
 
@@ -833,10 +1201,33 @@
           document.getElementById('wrapCam').style.display = 'flex';
           document.getElementById('wrapScreen').style.display = 'flex';
           startTimer();
-          if (WebRTCService.localStream) {
-            const t = WebRTCService.localStream.getAudioTracks()[0];
-            if (t?.readyState === 'live') AutoSTT.start(WebRTCService.localStream, ws, currentSpeak);
+
+          // Đồng bộ theo trạng thái MediaStreamTrack thực tế
+          const actualAudioTrack = WebRTCService.localStream?.getAudioTracks?.()[0];
+          micOn = !!(actualAudioTrack && actualAudioTrack.readyState === 'live' && actualAudioTrack.enabled && WebRTCService.isMicOn);
+          camOn = !!(WebRTCService.isCamOn && WebRTCService.localVideoStream);
+          updateMediaButtonsUI();
+
+          if (camOn && WebRTCService.localVideoStream) {
+            setLocalVideo(WebRTCService.localVideoStream);
+            setLocalSources({ camera: WebRTCService.localVideoStream });
+            broadcastPresenter('camera');
+          } else {
+            setLocalVideo(null);
           }
+
+          if (micOn && actualAudioTrack) {
+            if (roomMode === 'ai') {
+              AutoSTT.start(WebRTCService.localStream, ws, currentSpeak);
+            } else {
+              startNormalAudioMeter(WebRTCService.localStream);
+            }
+          } else {
+            AutoSTT.stop();
+            stopNormalAudioMeter();
+            if (roomMode === 'ai') setTPStatus('idle', 'Mic đã tắt');
+          }
+          WebRTCService.unlockAudio?.();
           break;
         case 'call_left':
           document.getElementById('wrapJoin').style.display = 'flex';
@@ -847,22 +1238,31 @@
           setLocalVideo(null);
           clearAllSources();
           broadcastPresenter('none');
+          stopNormalAudioMeter();
           AutoSTT.stop(); setTPStatus('idle', 'Sẵn sàng');
           break;
         case 'mic_toggled':
-          document.getElementById('micBtn').classList.toggle('off', !ev.enabled);
-          document.getElementById('micLabel').textContent = ev.enabled ? 'Mic' : 'Tắt mic';
-          document.getElementById('selfMicIcon').textContent = ev.enabled ? '🎤' : '🔇';
-          document.getElementById('selfMicIcon').classList.toggle('muted', !ev.enabled);
-          if (!ev.enabled) { AutoSTT.stop(); setTPStatus('idle', 'Mic đã tắt'); }
-          else if (WebRTCService.localStream) setTimeout(() => { if (!AutoSTT.isRunning()) AutoSTT.start(WebRTCService.localStream, ws, currentSpeak); }, 100);
+          const curAudioTrack = WebRTCService.localStream?.getAudioTracks?.()[0];
+          micOn = !!(ev.enabled && curAudioTrack && curAudioTrack.enabled);
+          updateMediaButtonsUI();
+          if (!micOn) {
+            AutoSTT.stop();
+            stopNormalAudioMeter();
+            setTPStatus('idle', 'Mic đã tắt');
+          }
+          else if (WebRTCService.localStream) {
+            if (roomMode === 'ai') {
+              setTimeout(() => { if (!AutoSTT.isRunning() && roomMode === 'ai') AutoSTT.start(WebRTCService.localStream, ws, currentSpeak); }, 100);
+            } else {
+              startNormalAudioMeter(WebRTCService.localStream);
+            }
+          }
           break;
         case 'cam_toggled':
-          document.getElementById('camBtn').classList.toggle('active', ev.enabled);
-          document.getElementById('camBtn').textContent = ev.enabled ? '📹' : '📷';
-          document.getElementById('camLabel').textContent = ev.enabled ? 'Tắt cam' : 'Camera';
-          setLocalVideo(ev.enabled ? ev.stream : null);
-          if (ev.enabled) {
+          camOn = !!(ev.enabled && WebRTCService.localVideoStream);
+          updateMediaButtonsUI();
+          setLocalVideo(camOn ? ev.stream : null);
+          if (camOn) {
             setLocalSources({ camera: ev.stream });
             if (!WebRTCService.isScreenOn) broadcastPresenter('camera');
           } else {
@@ -886,15 +1286,38 @@
           }
           break;
         case 'peer_video':
-          setPeerVideo(ev.peerId, ev.stream);
+          if (ev.peerId && !document.getElementById(`tile-${ev.peerId}`)) {
+            addPeerTile(ev.peerId);
+          }
+          if (ev.kind === 'camera') {
+            setPeerVideo(ev.peerId, ev.stream);
+          }
           setPeerSource(ev.peerId, ev.stream, ev.kind);
           break;
-        case 'cam_error': T.err('Lỗi camera', ev.reason); break;
-        case 'screen_error': T.err('Lỗi chia sẻ màn hình', ev.reason); break;
-        case 'mic_error': T.err('Lỗi micro', ev.reason); break;
+        case 'cam_error':
+          camOn = false;
+          updateMediaButtonsUI();
+          setLocalVideo(null);
+          setLocalSources({ camera: false });
+          T.err('Lỗi camera', ev.reason);
+          break;
+        case 'screen_error':
+          T.err('Lỗi chia sẻ màn hình', ev.reason);
+          break;
+        case 'mic_error':
+          micOn = false;
+          updateMediaButtonsUI();
+          AutoSTT.stop();
+          stopNormalAudioMeter();
+          T.err('Lỗi micro', ev.reason);
+          break;
         case 'peer_stream': addPeerTile(ev.peerId); break;
         case 'peer_closed': removePeerTile(ev.peerId); break;
-        case 'autoplay_blocked': document.getElementById('autoplayBanner').classList.add('show'); break;
+        case 'autoplay_blocked':
+          document.getElementById('autoplayBanner')?.classList.add('show');
+          const gBan = document.getElementById('globalAutoplayBanner');
+          if (gBan) gBan.style.display = 'flex';
+          break;
       }
     }
 
@@ -994,7 +1417,7 @@
     function onTTSStart(d) { pendingMsgIds.push(d.message_id); }
     function onTTSError(d) { const i = pendingMsgIds.indexOf(d.message_id); if (i !== -1) pendingMsgIds.splice(i, 1); }
     function onTTSFrame(bytes) {
-      if (!ttsEnabled) { pendingMsgIds.shift(); return; }
+      if (!ttsEnabled || roomMode === 'normal') { pendingMsgIds.shift(); return; }
       const msgId = pendingMsgIds.shift();
       if (!msgId) return;
       ttsAudioStore.set(msgId, bytes);
@@ -1076,7 +1499,7 @@
       updateLangPill();
       try {
         await fetch(`${API}/api/users/${user.id}/languages`, {
-          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          method: 'PUT', headers: U.getAuthHeaders(),
           body: JSON.stringify({ speaking_language: speak, listening_language: listen })
         });
         user.speaking_language = speak; user.listening_language = listen; U.save(user);
@@ -1089,9 +1512,12 @@
     // ═══════════════════════════════════════════════════════════════════════════
     function leaveMeeting() {
       AutoSTT.stop();
+      if (_handRaised) {
+        try { ws?.send(JSON.stringify({ type: 'raise_hand', raised: false, user_name: userName })); } catch (_) { }
+      }
       if (WebRTCService.isInCall) WebRTCService.leaveCall();
       if (ws) ws.close();
-      try { fetch(`${API}/api/rooms/${roomCode}/leave?user_id=${user.id}`, { method: 'POST' }).catch(() => { }); } catch (_) { }
+      try { fetch(`${API}/api/rooms/${roomCode}/leave`, { method: 'POST', headers: U.getAuthHeaders() }).catch(() => { }); } catch (_) { }
       location.href = 'home.html';
     }
 
@@ -1126,6 +1552,249 @@
       const e = document.getElementById('tpStatus');
       e.className = `tp-status ${cls}`;
       document.getElementById('tpStatusTxt').textContent = txt;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ✋ RAISE HAND
+    // ═══════════════════════════════════════════════════════════════════════════
+    let _handRaised = false;
+    let _raisedHands = [];
+
+    function toggleRaiseHand() {
+      _handRaised = !_handRaised;
+      const btn = document.getElementById('raiseHandBtn');
+      const lbl = document.getElementById('raiseHandLabel');
+      if (btn) btn.classList.toggle('raised', _handRaised);
+      if (lbl) lbl.textContent = _handRaised ? 'Hạ tay' : 'Giơ tay';
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'raise_hand', raised: _handRaised, user_name: userName }));
+      }
+    }
+
+    function onRaiseHand(d) {
+      const { user_id, user_name, raised } = d;
+      if (raised) {
+        if (!_raisedHands.find(h => h.user_id === user_id)) {
+          _raisedHands.push({ user_id, user_name, raisedAt: Date.now() });
+        }
+        if (user_id !== user?.id) {
+          T.info('✋ ' + (user_name || 'Ai đó') + ' đã giơ tay', '');
+        }
+      } else {
+        _raisedHands = _raisedHands.filter(h => h.user_id !== user_id);
+      }
+      renderRaisedHandBadges();
+      renderHandList();
+    }
+
+    function onRaisedHandsState(d) {
+      _raisedHands = (d.hands || []).map(h => ({ user_id: h.user_id, user_name: h.user_name, raisedAt: Date.now() }));
+      renderRaisedHandBadges();
+      renderHandList();
+    }
+
+    function renderRaisedHandBadges() {
+      document.querySelectorAll('.hand-badge').forEach(el => el.remove());
+      document.querySelectorAll('.rmp-hand-icon').forEach(el => el.remove());
+
+      _raisedHands.forEach(function (h) {
+        const tileId = (h.user_id === user?.id) ? 'tile-self' : ('tile-' + h.user_id);
+        const tile = document.getElementById(tileId);
+        if (tile && !tile.querySelector('.hand-badge')) {
+          const badge = document.createElement('div');
+          badge.className = 'hand-badge';
+          badge.textContent = '✋';
+          tile.appendChild(badge);
+        }
+        const rmpItem = document.getElementById('rmp-' + h.user_id);
+        if (rmpItem && !rmpItem.querySelector('.rmp-hand-icon')) {
+          const icon = document.createElement('span');
+          icon.className = 'rmp-hand-icon';
+          icon.textContent = '✋';
+          rmpItem.appendChild(icon);
+        }
+      });
+    }
+
+    function renderHandList() {
+      const panel = document.getElementById('handListPanel');
+      const listContent = document.getElementById('handListContent');
+      if (!panel || !listContent) return;
+      if (!_raisedHands.length) {
+        listContent.innerHTML = '<div class="hand-panel-empty">Không ai đang giơ tay</div>';
+        panel.classList.remove('show');
+        return;
+      }
+      listContent.innerHTML = _raisedHands.map(function (h, i) {
+        return '<div class="hand-item">' +
+          '<span class="hand-item-num">' + (i + 1) + '</span>' +
+          '<div class="hand-item-av">' + ((h.user_name || 'U').charAt(0).toUpperCase()) + '</div>' +
+          '<span class="hand-item-name">' + x(h.user_name) + '</span>' +
+          '<span style="font-size:0.9rem;">✋</span>' +
+          '</div>';
+      }).join('');
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 😊 REACTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
+    let _reactPickerOpen = false;
+
+    function toggleReactPicker() {
+      _reactPickerOpen = !_reactPickerOpen;
+      const picker = document.getElementById('reactPicker');
+      const btn = document.getElementById('reactBtn');
+      if (picker) picker.classList.toggle('show', _reactPickerOpen);
+      if (btn) btn.classList.toggle('active', _reactPickerOpen);
+    }
+
+    function closeReactPicker() {
+      _reactPickerOpen = false;
+      const picker = document.getElementById('reactPicker');
+      const btn = document.getElementById('reactBtn');
+      if (picker) picker.classList.remove('show');
+      if (btn) btn.classList.remove('active');
+    }
+
+    function sendReaction(emoji) {
+      closeReactPicker();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'reaction', emoji: emoji, user_name: userName }));
+      }
+      showReactionBubble(emoji, 'Bạn');
+    }
+
+    function onReaction(d) {
+      if (d.user_id !== user?.id) {
+        const name = d.user_name || _members.get(d.user_id)?.name || ('User ' + d.user_id);
+        showReactionBubble(d.emoji, name);
+      }
+    }
+
+    function showReactionBubble(emoji, name) {
+      const overlay = document.getElementById('reactionsOverlay');
+      if (!overlay) return;
+      const bubble = document.createElement('div');
+      bubble.className = 'reaction-bubble';
+      bubble.innerHTML = '<span class="rb-emoji">' + emoji + '</span><span class="rb-name">' + x(name) + '</span>';
+      overlay.appendChild(bubble);
+      setTimeout(function () { bubble.remove(); }, 3600);
+    }
+
+    document.addEventListener('click', function (e) {
+      if (_reactPickerOpen) {
+        const wrap = document.getElementById('wrapReact');
+        if (wrap && !wrap.contains(e.target)) {
+          closeReactPicker();
+        }
+      }
+    });
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // 💬 CHAT
+    // ═══════════════════════════════════════════════════════════════════════════
+    let _chatUnread = 0;
+    let _chatLoaded = false;
+
+    function openChatPanel() {
+      if (!panelVisible) togglePanel();
+      switchTab('chat');
+      const btn = document.getElementById('chatBtn');
+      if (btn) btn.classList.add('active');
+      if (!_chatLoaded) loadChatHistory();
+    }
+
+    async function loadChatHistory() {
+      if (_chatLoaded) return;
+      _chatLoaded = true;
+      try {
+        const res = await fetch(API + '/api/rooms/' + roomCode + '/messages', { headers: U.getAuthHeaders() });
+        if (!res.ok) return;
+        const messages = await res.json();
+        const container = document.getElementById('chatMessages');
+        if (!container || !messages.length) return;
+        container.innerHTML = '';
+        messages.forEach(function (m) {
+          appendChatMsg({ user_id: m.user_id, user_name: m.user_name, content: m.content, sent_at: m.sent_at }, false);
+        });
+        container.scrollTop = container.scrollHeight;
+      } catch (e) {
+        console.warn('[Chat] loadChatHistory failed:', e);
+      }
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chatInput');
+      if (!input) return;
+      const content = input.value.trim();
+      if (!content || content.length > 2000) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        T.err('Chưa kết nối', 'Không thể gửi tin nhắn lúc này');
+        return;
+      }
+      ws.send(JSON.stringify({ type: 'chat_message', content: content, user_name: userName }));
+      input.value = '';
+      input.style.height = 'auto';
+    }
+
+    function chatKeyDown(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    }
+
+    function onChatMessage(d) {
+      const container = document.getElementById('chatMessages');
+      if (!container) return;
+      const hint = container.querySelector('.chat-empty-hint');
+      if (hint) hint.remove();
+
+      appendChatMsg(d, true);
+
+      const chatPane = document.getElementById('pane-chat');
+      const isChatActive = chatPane && chatPane.classList.contains('active');
+      if (!isChatActive && d.user_id !== user?.id) {
+        _chatUnread++;
+        const badge = document.getElementById('chatBadge');
+        const tabBadge = document.getElementById('chatTabBadge');
+        const num = _chatUnread > 99 ? '99+' : String(_chatUnread);
+        if (badge) { badge.textContent = num; badge.classList.add('show'); }
+        if (tabBadge) { tabBadge.textContent = num; tabBadge.classList.add('show'); }
+      }
+    }
+
+    function appendChatMsg(d, scrollToBottom) {
+      const container = document.getElementById('chatMessages');
+      if (!container) return;
+      const isMe = d.user_id === user?.id;
+      const memberName = _members.get(d.user_id)?.name;
+      const name = isMe ? 'Bạn' : (d.user_name || memberName || ('User ' + d.user_id));
+      const initial = (name || 'U').charAt(0).toUpperCase();
+      let timeStr;
+      try {
+        timeStr = d.sent_at
+          ? new Date(d.sent_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+          : new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      } catch (_) {
+        timeStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      const msgDiv = document.createElement('div');
+      msgDiv.className = 'chat-msg' + (isMe ? ' me' : '');
+      msgDiv.innerHTML =
+        '<div class="chat-msg-av">' + initial + '</div>' +
+        '<div class="chat-msg-body">' +
+        '<div class="chat-msg-meta">' +
+        '<span class="chat-msg-name">' + x(name) + '</span>' +
+        '<span class="chat-msg-time">' + timeStr + '</span>' +
+        '</div>' +
+        '<div class="chat-msg-bubble">' + x(d.content) + '</div>' +
+        '</div>';
+      container.appendChild(msgDiv);
+      if (scrollToBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
     }
 
     boot();

@@ -3490,3 +3490,422 @@ select.form-control {
         opacity: 1;
     }
 }
+
+/* ════════════════════════════════════════════════════════
+   RAISE HAND, REACTIONS, CHAT — meeting.html additions
+   ════════════════════════════════════════════════════════ */
+
+/* ── Controls: new buttons ───────────────────────────────── */
+.ctrl-btn.active {
+    background: var(--primary) !important;
+    color: #fff !important;
+}
+
+.ctrl-btn.ctrl-hand.active {
+    background: #f59e0b !important;
+    color: #fff !important;
+    animation: hand-pulse .8s ease infinite alternate;
+}
+
+@keyframes hand-pulse {
+    from {
+        transform: scale(1);
+    }
+
+    to {
+        transform: scale(1.08);
+    }
+}
+
+/* Reaction wrap — relative container for picker */
+.ctrl-reaction-wrap {
+    position: relative;
+}
+
+.reaction-picker {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1e1e2e;
+    border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: var(--radius-lg);
+    padding: 8px 10px;
+    gap: 6px;
+    display: none;
+    flex-wrap: nowrap;
+    z-index: 200;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+.reaction-picker.visible {
+    display: flex;
+}
+
+.reaction-picker button {
+    background: none;
+    border: none;
+    font-size: 1.4rem;
+    cursor: pointer;
+    border-radius: var(--radius);
+    padding: 4px 6px;
+    transition: transform .15s;
+    line-height: 1;
+}
+
+.reaction-picker button:hover {
+    transform: scale(1.3);
+    background: rgba(255, 255, 255, .08);
+}
+
+/* Chat badge on ctrl-btn */
+.chat-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    background: var(--danger);
+    color: #fff;
+    font-size: .6rem;
+    font-weight: 700;
+    min-width: 16px;
+    height: 16px;
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    pointer-events: none;
+}
+
+/* ── Raise hands panel section ───────────────────────────── */
+.raised-hands-section {
+    background: rgba(245, 158, 11, .1);
+    border-top: 1px solid rgba(245, 158, 11, .3);
+    padding: 8px 12px;
+}
+
+.raised-hands-title {
+    font-size: .72rem;
+    font-weight: 600;
+    color: #fcd34d;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    margin-bottom: 6px;
+}
+
+.raised-hand-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: .8rem;
+    color: rgba(255, 255, 255, .85);
+}
+
+.rh-num {
+    width: 18px;
+    height: 18px;
+    background: rgba(245, 158, 11, .3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .68rem;
+    font-weight: 700;
+    color: #fcd34d;
+    flex-shrink: 0;
+}
+
+.rh-name {
+    flex: 1;
+}
+
+.rh-icon {
+    font-size: 1rem;
+}
+
+/* ── Video tile hand icon ─────────────────────────────────── */
+.tile-hand {
+    font-size: .9rem;
+    animation: hand-bounce .4s ease;
+}
+
+@keyframes hand-bounce {
+    0% {
+        transform: scale(.6);
+        opacity: 0;
+    }
+
+    60% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Member list hand icon */
+.member-hand-icon {
+    font-size: .9rem;
+    margin-left: auto;
+}
+
+/* ── Reaction Overlay ─────────────────────────────────────── */
+.reaction-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 50;
+}
+
+.floating-reaction {
+    position: absolute;
+    bottom: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    animation: float-up 3s ease forwards;
+    pointer-events: none;
+}
+
+.fr-emoji {
+    font-size: 2.2rem;
+    line-height: 1;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, .4));
+}
+
+.fr-name {
+    font-size: .65rem;
+    color: rgba(255, 255, 255, .8);
+    background: rgba(0, 0, 0, .4);
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@keyframes float-up {
+    0% {
+        opacity: 0;
+        transform: translateY(0) scale(.5);
+    }
+
+    15% {
+        opacity: 1;
+        transform: translateY(-20px) scale(1);
+    }
+
+    80% {
+        opacity: 1;
+        transform: translateY(-140px) scale(1.05);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateY(-180px) scale(1);
+    }
+}
+
+/* ── Chat Panel ───────────────────────────────────────────── */
+.chat-panel {
+    width: 300px;
+    flex-shrink: 0;
+    background: #14141f;
+    border-left: 1px solid rgba(255, 255, 255, .07);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width .2s ease;
+}
+
+.chat-panel.hidden {
+    width: 0 !important;
+    min-width: 0;
+    border: none;
+    overflow: hidden;
+}
+
+.chat-panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, .07);
+    font-size: .85rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .85);
+    flex-shrink: 0;
+}
+
+.chat-panel-head .btn-close {
+    color: rgba(255, 255, 255, .4);
+    font-size: .9rem;
+}
+
+.chat-panel-head .btn-close:hover {
+    color: rgba(255, 255, 255, .8);
+    background: rgba(255, 255, 255, .08);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+}
+
+.chat-empty {
+    text-align: center;
+    color: rgba(255, 255, 255, .3);
+    font-size: .8rem;
+    padding: 30px 0;
+}
+
+/* Chat message bubbles */
+.chat-msg {
+    display: flex;
+    align-items: flex-end;
+    gap: 7px;
+    max-width: 94%;
+}
+
+.chat-msg-me {
+    flex-direction: row-reverse;
+    align-self: flex-end;
+}
+
+.chat-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .72rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.chat-avatar-me {
+    background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.chat-msg-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.chat-msg-sender {
+    font-size: .68rem;
+    color: rgba(255, 255, 255, .5);
+    padding: 0 4px;
+}
+
+.chat-msg-content {
+    background: rgba(255, 255, 255, .08);
+    color: rgba(255, 255, 255, .9);
+    border-radius: 12px 12px 12px 4px;
+    padding: 7px 10px;
+    font-size: .82rem;
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.chat-msg-me .chat-msg-content {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 12px 12px 4px 12px;
+}
+
+.chat-msg-meta {
+    font-size: .62rem;
+    color: rgba(255, 255, 255, .3);
+    padding: 0 4px;
+    text-align: right;
+}
+
+/* Chat input */
+.chat-input-row {
+    display: flex;
+    gap: 6px;
+    padding: 10px;
+    border-top: 1px solid rgba(255, 255, 255, .07);
+    flex-shrink: 0;
+}
+
+.chat-input {
+    flex: 1;
+    background: rgba(255, 255, 255, .07);
+    border: 1px solid rgba(255, 255, 255, .1);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    color: rgba(255, 255, 255, .9);
+    font-size: .82rem;
+    outline: none;
+    font-family: var(--font);
+}
+
+.chat-input::placeholder {
+    color: rgba(255, 255, 255, .3);
+}
+
+.chat-input:focus {
+    border-color: var(--primary);
+    background: rgba(99, 102, 241, .08);
+}
+
+.chat-send-btn {
+    width: 36px;
+    height: 36px;
+    background: var(--primary);
+    border: none;
+    border-radius: var(--radius);
+    color: #fff;
+    font-size: .9rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.chat-send-btn:hover {
+    background: var(--primary-dark);
+}
+
+/* ── Meeting body with chat: 4-column grid when open ──────── */
+.meeting-body.chat-visible {
+    grid-template-columns: 1fr 360px 220px 300px;
+}
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .chat-panel {
+        position: fixed;
+        right: 0;
+        top: 56px;
+        bottom: 0;
+        width: 280px !important;
+        z-index: 150;
+        box-shadow: -4px 0 20px rgba(0, 0, 0, .4);
+    }
+
+    .chat-panel.hidden {
+        width: 0 !important;
+    }
+}

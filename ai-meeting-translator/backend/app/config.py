@@ -6,8 +6,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "AI Meeting Translator"
     DEBUG: bool = False
 
-    # Admin
-    ADMIN_SECRET_KEY: str = "changeme-admin-secret-2026"
+
+    # Admin & Security
+    ADMIN_SECRET_KEY: str = ""
+    JWT_SECRET_KEY: str = "linguameet-secret-key-change-in-production-2026"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
 
     # Database
     DB_HOST: str = "localhost"
@@ -17,7 +21,7 @@ class Settings(BaseSettings):
     DB_NAME: str = "ai_meeting_translator"
 
     # CORS
-    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173,http://localhost:8000,http://127.0.0.1:8000,http://localhost,http://127.0.0.1"
 
     # Translation
     TRANSLATION_PROVIDER: str = "deep_google"  # nllb | marian | google | deep_google
@@ -29,7 +33,7 @@ class Settings(BaseSettings):
     TTS_TIMEOUT: int = 15        # giây, timeout cho edge-tts
 
     # Whisper
-    WHISPER_MODEL: str = "small"
+    WHISPER_MODEL: str = "base"
     WHISPER_DEVICE: str = "cpu"
     WHISPER_COMPUTE_TYPE: str = "int8"
     # beam_size=2: cân bằng tốt giữa tốc độ (~3x nhanh hơn beam=5) và độ chính xác trên CPU real-time
@@ -48,7 +52,7 @@ class Settings(BaseSettings):
 
     # WebRTC ICE Servers
     # STUN — dùng Google STUN mặc định, có thể override
-    STUN_URLS: str = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302"
+    STUN_URLS: str = "stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302,stun:stun2.l.google.com:19302,stun:stun.cloudflare.com:3478"
     # TURN — để trống nếu không có TURN server
     TURN_URL: str = ""
     TURN_USERNAME: str = ""
@@ -77,7 +81,7 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> list[str]:
-        return [o.strip() for o in self.CORS_ORIGINS.split(",")]
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
     class Config:
         env_file = ".env"

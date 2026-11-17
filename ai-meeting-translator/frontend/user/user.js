@@ -1,13 +1,39 @@
 /* user.js — Shared utils cho User Portal */
-const API = 'http://127.0.0.1:8000';
-const WS_BASE = 'ws://127.0.0.1:8000';
+function _resolveBackend() {
+  const isHttp = typeof window !== 'undefined' && window.location && window.location.protocol.startsWith('http');
+  if (!isHttp) {
+    return { api: 'http://127.0.0.1:8000', ws: 'ws://127.0.0.1:8000' };
+  }
+  const loc = window.location;
+  const isHttps = loc.protocol === 'https:';
+  const proto = isHttps ? 'https:' : 'http:';
+  const wsProto = isHttps ? 'wss:' : 'ws:';
+  if (loc.port === '8000' || loc.port === '80' || loc.port === '443' || loc.port === '') {
+    return { api: proto + '//' + loc.host, ws: wsProto + '//' + loc.host };
+  }
+  const host = (loc.hostname || '127.0.0.1') + ':8000';
+  return { api: proto + '//' + host, ws: wsProto + '//' + host };
+}
+const _cfg = _resolveBackend();
+const API = _cfg.api;
+const WS_BASE = _cfg.ws;
 
 /* ── Session ── */
 const U = {
   save: d => { try { sessionStorage.setItem('lm_user', JSON.stringify(d)); } catch (_) { } },
   load: () => { try { return JSON.parse(sessionStorage.getItem('lm_user') || 'null'); } catch (_) { return null; } },
   clear: () => sessionStorage.removeItem('lm_user'),
-  require: () => { const u = U.load(); if (!u) { location.href = 'login.html'; } return u; },
+  require: () => { const u = U.load(); if (!u || !u.token) { location.href = 'login.html'; return null; } return u; },
+  getAuthHeaders: (extra = {}) => {
+    const u = U.load();
+    const h = { 'Content-Type': 'application/json', ...extra };
+    if (u && u.token) h['Authorization'] = 'Bearer ' + u.token;
+    return h;
+  },
+  getToken: () => {
+    const u = U.load();
+    return (u && u.token) ? u.token : '';
+  },
 };
 
 /* ── Toast ── */
@@ -65,7 +91,7 @@ function renderNav(activePage = '') {
       <button class="btn-nav-settings" title="Cài đặt nhanh" onclick="if(window.openSettingsModal){openSettingsModal();}else{location.href='profile.html';}">⚙️</button>
       <div class="user-menu-wrap">
         <div class="user-menu-btn" onclick="toggleDropdown()">
-          <div class="avatar av-sm">${init}</div>
+          <div class="avatar av-sm">${user.avatar_url ? `<img src="${API}${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />` : init}</div>
           <span class="uname">${x(user.full_name || '')}</span>
           <span class="chevron">▾</span>
         </div>
@@ -104,7 +130,18 @@ function populateLangSelect(el, langs, val) {
 }
 
 /* ── Enter room helper ── */
-function goRoom(code, userId, speakLang, listenLang, userName) {
-  const p = new URLSearchParams({ room: code, userId, speakLang, listenLang, userName });
+function goRoom(code, userId, speakLang, listenLang, userName, mic = true, cam = false) {
+  const isMic = (mic === true || mic === '1' || mic === 'true');
+  const isCam = (cam === true || cam === '1' || cam === 'true');
+  const p = new URLSearchParams({
+    room: code,
+    userId,
+    speakLang,
+    listenLang,
+    userName,
+    mic: isMic ? '1' : '0',
+    cam: isCam ? '1' : '0',
+    token: U.getToken()
+  });
   location.href = `room.html?${p}`;
 }

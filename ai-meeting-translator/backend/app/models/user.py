@@ -13,3 +13,4 @@ class User(Base):
     listening_language = Column(String(10), nullable=False)
     created_at = Column(DateTime, server_default=func.now())
     is_admin = Column(Boolean, default=False, nullable=False)
+    avatar_url = Column(String(500), nullable=True)

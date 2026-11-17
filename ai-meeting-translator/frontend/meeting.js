@@ -4,7 +4,14 @@
  */
 
 // API và WS_BASE đã được khai báo trong app.js
-const WS_BASE = 'ws://127.0.0.1:8000';
+const WS_BASE = (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') ? ('wss://' + window.location.host) : (typeof window !== 'undefined' && window.location && window.location.protocol === 'http:') ? ((window.location.port === '8000' || window.location.port === '' || window.location.port === '80') ? ('ws://' + window.location.host) : ('ws://' + (window.location.hostname || '127.0.0.1') + ':8000')) : 'ws://127.0.0.1:8000';
+
+function getMeetingAuthHeaders(extra = {}) {
+    const h = { 'Content-Type': 'application/json', ...extra };
+    const token = (typeof U !== 'undefined' && U.getToken) ? U.getToken() : ((new URLSearchParams(location.search)).get('token') || '');
+    if (token) h['Authorization'] = 'Bearer ' + token;
+    return h;
+}
 
 // ── State ─────────────────────────────────────────────────────────────────
 let ws = null;
@@ -32,6 +39,15 @@ let _localCamStream = null;
 
 // Host state
 let currentHostId = null;
+let currentMeetingMode = 'normal';
+
+// ── Raise hand state ──────────────────────────────────────────────────────
+let myHandRaised = false;
+let raisedHandsMap = new Map(); // userId → userName (ordered)
+
+// ── Chat state ────────────────────────────────────────────────────────────
+let chatOpen = false;
+let chatUnread = 0;
 
 // ── URL params ────────────────────────────────────────────────────────────
 function getUrlParams() {
@@ -65,6 +81,7 @@ async function init() {
         if (res.ok) {
             const roomInfo = await res.json();
             currentHostId = roomInfo.host_id;
+            applyMeetingMode(roomInfo.meeting_mode || 'normal');
         }
     } catch (_) { }
 
@@ -98,12 +115,23 @@ async function init() {
     }, { once: false });
 
     connectWS();
+
+    // Load lịch sử chat
+    setTimeout(loadChatHistory, 800);
+
+    // Đóng reaction picker khi click ngoài
+    document.addEventListener('click', (e) => {
+        const wrap = document.getElementById('reactionWrap');
+        if (wrap && !wrap.contains(e.target)) closeReactionPicker();
+    });
 }
 
 // ── WebSocket ─────────────────────────────────────────────────────────────
 function connectWS() {
     setConnStatus('connecting');
-    ws = new WebSocket(`${WS_BASE}/ws/rooms/${currentRoomCode}/${currentUserId}`);
+    const token = (typeof U !== 'undefined' && U.getToken) ? U.getToken() : ((new URLSearchParams(location.search)).get('token') || '');
+    const wsUrl = token ? `${WS_BASE}/ws/rooms/${currentRoomCode}/${currentUserId}?token=${encodeURIComponent(token)}` : `${WS_BASE}/ws/rooms/${currentRoomCode}/${currentUserId}`;
+    ws = new WebSocket(wsUrl);
     ws.binaryType = 'arraybuffer';
 
     ws.onopen = () => {
@@ -147,17 +175,19 @@ function handleMessage(data) {
         case 'user_joined':
             if (data.user_id !== currentUserId) {
                 if (!participants.has(data.user_id)) {
-                    participants.set(data.user_id, { name: `User ${data.user_id}`, speakLang: '?' });
+                    participants.set(data.user_id, { name: data.full_name || `User ${data.user_id}`, speakLang: data.speaking_language || '?', avatarUrl: data.avatar_url || null });
                 }
                 renderParticipants();
                 showVideoTileForPeer(data.user_id);
-                Toast && Toast.info('Có người vào phòng', `User ${data.user_id} đã tham gia`);
+                Toast && Toast.info('Có người vào phòng', `${data.full_name || 'User ' + data.user_id} đã tham gia`);
             }
             break;
 
         case 'user_left':
             participants.delete(data.user_id);
+            raisedHandsMap.delete(data.user_id);
             renderParticipants();
+            renderRaisedHands();
             removeVideoTile(data.user_id);
             if (typeof WebRTCService !== 'undefined') WebRTCService.handlePeerLeft(data.user_id);
             Toast && Toast.warning('Có người rời phòng', `User ${data.user_id} đã rời`);
@@ -194,14 +224,23 @@ function handleMessage(data) {
             break;
 
         case 'webrtc_ready':
+            // Peer mới join báo sẵn sàng. Bên cũ KHÔNG chủ động offer —
+            // người mới đã tự offer trong joinCall của họ.
+            // Chỉ offer nếu ta vào phòng TRƯỚC họ nhưng joinCall đã bỏ lỡ họ
+            // (ví dụ: họ join ngay lúc ta đang joinCall).
             if (typeof WebRTCService !== 'undefined' && WebRTCService.isInCall
-                && data.user_id !== currentUserId && currentUserId < data.user_id) {
-                doOffer(data.user_id);
+                && data.user_id !== currentUserId
+                && !WebRTCService.hasPeer(data.user_id)) {
+                // Người mới hơn (id lớn hơn) sẽ offer, ta chờ offer của họ.
+                // Nếu id của ta lớn hơn (ta join sau), ta offer họ để tránh bỏ sót.
+                if (currentUserId > data.user_id) {
+                    doOffer(data.user_id);
+                }
             }
             break;
 
         case 'webrtc_offer':
-            if (typeof WebRTCService !== 'undefined' && WebRTCService.isInCall) {
+            if (typeof WebRTCService !== 'undefined') {
                 WebRTCService.setWebSocket(ws);
                 WebRTCService.handleOffer(data.from_user_id, data.sdp);
             }
@@ -215,6 +254,16 @@ function handleMessage(data) {
         case 'webrtc_ice_candidate':
             if (typeof WebRTCService !== 'undefined')
                 WebRTCService.handleIceCandidate(data.from_user_id, data.candidate);
+            break;
+
+        case 'webrtc_track_state':
+            if (typeof WebRTCService !== 'undefined')
+                WebRTCService.handleTrackState?.(data.from_user_id, { camera: data.camera, screen: data.screen });
+            break;
+
+        case 'webrtc_track_meta':
+            if (typeof WebRTCService !== 'undefined')
+                WebRTCService.handleTrackMeta?.(data.from_user_id, { track_id: data.track_id, kind: data.kind });
             break;
 
         case 'webrtc_leave':
@@ -237,27 +286,60 @@ function handleMessage(data) {
         case 'error':
             console.error('[WS] Error:', data.message);
             break;
+
+        case 'raise_hand':
+            onRaiseHand(data);
+            break;
+
+        case 'raised_hands_state':
+            raisedHandsMap.clear();
+            (data.hands || []).forEach(h => raisedHandsMap.set(h.user_id, h.user_name));
+            renderRaisedHands();
+            updateVideoTileHands();
+            break;
+
+        case 'reaction':
+            onReaction(data);
+            break;
+
+        case 'room_mode':
+            applyMeetingMode(data.meeting_mode);
+            break;
+
+        case 'room_mode_changed':
+            applyMeetingMode(data.meeting_mode);
+            Toast && Toast.info('Chế độ cuộc họp', data.message || 'Chế độ cuộc họp đã được cập nhật');
+            break;
+
+        case 'chat_message':
+            onChatMessage(data);
+            break;
     }
 }
-
 // ── Video tiles ───────────────────────────────────────────────────────────
 function renderLocalVideoTile() {
     const grid = document.getElementById('videoGrid');
     if (!grid) return;
     let tile = document.getElementById('tile-local');
     const isHost = currentUserId === currentHostId;
+    const localUser = (typeof U !== 'undefined' && U.load) ? U.load() : null;
+    const avatarUrl = localUser && localUser.avatar_url ? localUser.avatar_url : null;
+    const avatarHtml = avatarUrl
+        ? `<img src="${typeof API !== 'undefined' ? API : ''}${avatarUrl}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
+        : `<div class="avatar-big">${currentUserName.charAt(0).toUpperCase()}</div>`;
     if (!tile) {
         tile = document.createElement('div');
         tile.className = 'video-tile' + (isHost ? ' is-host' : '');
         tile.id = 'tile-local';
         tile.innerHTML = `
       <div class="video-placeholder">
-        <div class="avatar-big">${currentUserName.charAt(0).toUpperCase()}</div>
+        ${avatarHtml}
         <div class="peer-name">${esc(currentUserName)} (Bạn)</div>
       </div>
       <div class="video-tile-info">
         <span class="tile-name">${esc(currentUserName)}</span>
         <span class="tile-mic-off" id="localMicIcon">🎤</span>
+        <span class="tile-hand hidden" id="tileHand-${currentUserId}">✋</span>
       </div>
       ${isHost ? '<div class="host-badge">👑 Chủ phòng</div>' : ''}
     `;
@@ -273,17 +355,21 @@ function showVideoTileForPeer(peerId) {
     const peer = participants.get(peerId) || {};
     const name = peer.name || `User ${peerId}`;
     const isHost = peerId === currentHostId;
+    const avatarHtml = peer.avatarUrl
+        ? `<img src="${typeof API !== 'undefined' ? API : ''}${peer.avatarUrl}" style="width:56px;height:56px;border-radius:50%;object-fit:cover;" />`
+        : `<div class="avatar-big">${name.charAt(0).toUpperCase()}</div>`;
     const tile = document.createElement('div');
     tile.className = 'video-tile' + (isHost ? ' is-host' : '');
     tile.id = `tile-${peerId}`;
     tile.innerHTML = `
     <div class="video-placeholder">
-      <div class="avatar-big">${name.charAt(0).toUpperCase()}</div>
+      ${avatarHtml}
       <div class="peer-name">${esc(name)}</div>
     </div>
     <div class="video-tile-info">
       <span class="tile-name">${esc(name)}</span>
       <span class="tile-mic-off" id="peerMicIcon-${peerId}">🎤</span>
+      <span class="tile-hand hidden" id="tileHand-${peerId}">✋</span>
     </div>
     ${isHost ? '<div class="host-badge">👑 Chủ phòng</div>' : ''}
   `;
@@ -327,13 +413,19 @@ function onWebRTCEvent(event) {
             document.getElementById('btnJoinCall').classList.add('hidden');
             document.getElementById('btnLeaveCall').classList.remove('hidden');
             document.getElementById('btnToggleMic').classList.remove('hidden');
+            document.getElementById('btnToggleCam')?.classList.remove('hidden');
             document.getElementById('btnToggleScreen').classList.remove('hidden');
             updateWebRTCStatus('Đang trong cuộc gọi');
 
             if (WebRTCService.localStream) {
                 const track = WebRTCService.localStream.getAudioTracks()[0];
                 if (track && track.readyState === 'live') {
-                    AutoSTT.start(WebRTCService.localStream, ws, currentSpeakLang);
+                    if (currentMeetingMode === 'ai') {
+                        // Chế độ AI: tắt WebRTC audio track để bên kia không nghe giọng gốc,
+                        // chỉ nghe giọng AI qua TTS pipeline.
+                        WebRTCService.localStream.getAudioTracks().forEach(t => { t.enabled = false; });
+                        AutoSTT.start(WebRTCService.localStream, ws, currentSpeakLang);
+                    }
                     document.getElementById('btnToggleMic').classList.add('active');
                 }
             }
@@ -345,6 +437,8 @@ function onWebRTCEvent(event) {
             document.getElementById('btnLeaveCall').classList.add('hidden');
             document.getElementById('btnToggleMic').classList.add('hidden');
             document.getElementById('btnToggleMic').classList.remove('active');
+            document.getElementById('btnToggleCam')?.classList.add('hidden');
+            document.getElementById('btnToggleCam')?.classList.remove('active');
             document.getElementById('btnToggleScreen').classList.add('hidden');
             document.getElementById('btnToggleScreen').classList.remove('active');
             exitPresenterMode();
@@ -363,16 +457,18 @@ function onWebRTCEvent(event) {
             if (!event.enabled) {
                 AutoSTT.stop();
                 setSTTStatus('idle', 'Mic đã tắt');
-            } else if (WebRTCService.localStream) {
+            } else if (WebRTCService.localStream && currentMeetingMode === 'ai') {
                 setTimeout(() => {
-                    if (!AutoSTT.isRunning()) AutoSTT.start(WebRTCService.localStream, ws, currentSpeakLang);
+                    if (!AutoSTT.isRunning() && currentMeetingMode === 'ai') {
+                        AutoSTT.start(WebRTCService.localStream, ws, currentSpeakLang);
+                    }
                 }, 100);
             }
             break;
         }
 
         case 'mic_error':
-            Toast && Toast.error('Lỗi microphone', event.reason);
+            Toast && Toast.error('Lỗi micro', event.reason || event.error?.message);
             updateWebRTCStatus('Lỗi microphone');
             break;
 
@@ -484,9 +580,9 @@ function enterPresenterMode(presenterId, stream, type = 'screen') {
         <video autoplay playsinline></video>
     `;
     const mainVideo = mainArea.querySelector('video');
-    mainVideo.muted = isLocal;
+    mainVideo.muted = true;
     mainVideo.srcObject = stream;
-    mainVideo.play().catch(() => { });
+    mainVideo.play().catch(e => console.warn('[PresenterVideo] play failed:', e));
 
     let thumbStrip = grid.querySelector('.presenter-thumbnails');
     if (!thumbStrip) {
@@ -525,6 +621,37 @@ function exitPresenterMode() {
         const v = mainArea.querySelector('video');
         if (v) v.srcObject = null;
         mainArea.remove();
+    }
+}
+
+// ── Room Mode helper ──────────────────────────────────────────────────────
+function applyMeetingMode(mode) {
+    currentMeetingMode = (mode === 'ai' || mode === 'ai_translation') ? 'ai' : 'normal';
+    const subBar = document.getElementById('subtitlesBar');
+    const isNormal = currentMeetingMode === 'normal';
+
+    if (isNormal) {
+        AutoSTT.stop();
+        if (subBar) subBar.classList.add('hidden');
+        ttsQueue.length = 0;
+        ttsPlaying = false;
+        setSTTStatus('idle', 'Chế độ họp bình thường (AI tắt)');
+        // Chế độ bình thường: bật lại WebRTC audio track để bên kia nghe giọng thật
+        if (WebRTCService.localStream) {
+            WebRTCService.localStream.getAudioTracks().forEach(t => { t.enabled = true; });
+        }
+    } else {
+        if (subBar) subBar.classList.remove('hidden');
+        // Chế độ AI: tắt WebRTC audio track để bên kia chỉ nghe TTS, không nghe giọng gốc
+        if (WebRTCService.localStream) {
+            WebRTCService.localStream.getAudioTracks().forEach(t => { t.enabled = false; });
+        }
+        if (WebRTCService.isInCall && WebRTCService.localStream) {
+            const track = WebRTCService.localStream.getAudioTracks()[0];
+            if (track && track.readyState === 'live' && !AutoSTT.isRunning()) {
+                AutoSTT.start(WebRTCService.localStream, ws, currentSpeakLang);
+            }
+        }
     }
 }
 
@@ -758,7 +885,7 @@ async function saveLanguages() {
     const listenLang = document.getElementById('meetListenLang').value;
     try {
         const res = await fetch(`${API}/api/users/${currentUserId}/languages`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            method: 'PUT', headers: getMeetingAuthHeaders(),
             body: JSON.stringify({ speaking_language: speakLang, listening_language: listenLang }),
         });
         if (!res.ok) throw new Error();
@@ -772,6 +899,8 @@ async function saveLanguages() {
 }
 
 // ── WebRTC actions ────────────────────────────────────────────────────────
+function _log_meeting(...a) { console.log('[Meeting]', ...a); }
+
 async function joinCall() {
     if (!currentUserId || !ws || ws.readyState !== WebSocket.OPEN) {
         Toast && Toast.error('Chưa kết nối', 'Chưa kết nối WebSocket');
@@ -779,10 +908,16 @@ async function joinCall() {
     }
     WebRTCService.setWebSocket(ws);
     try {
-        const peersToOffer = roomPeers.filter(id => id > currentUserId);
+        // Gửi offer đến tất cả peer đã có trong phòng trước khi ta join.
+        // Người mới vào luôn là offerer, người cũ sẽ answer.
+        const peersToOffer = roomPeers.filter(id => Number(id) !== Number(currentUserId));
+        _log_meeting(`joinCall: peers=${JSON.stringify(roomPeers)}, offering to: ${JSON.stringify(peersToOffer)}`);
         await WebRTCService.joinCall(currentUserId, peersToOffer);
     } catch (e) {
-        Toast && Toast.error('Lỗi', e.message);
+        const msg = e.message?.includes('HTTPS') || e.message?.includes('localhost')
+            ? 'Trang cần chạy qua HTTPS hoặc localhost mới dùng được microphone'
+            : e.message;
+        Toast && Toast.error('Không vào được cuộc gọi', msg);
     }
 }
 
@@ -793,6 +928,20 @@ function leaveCall() {
 
 function toggleMic() {
     if (typeof WebRTCService !== 'undefined') WebRTCService.toggleMic();
+}
+
+async function toggleCam() {
+    if (!WebRTCService.isInCall) {
+        Toast && Toast.error('Chưa trong cuộc gọi', 'Hãy tham gia cuộc gọi trước');
+        return;
+    }
+    try {
+        const on = await WebRTCService.toggleCamera();
+        const btn = document.getElementById('btnToggleCam');
+        if (btn) btn.classList.toggle('active', on);
+    } catch (e) {
+        Toast && Toast.error('Lỗi camera', e.message);
+    }
 }
 
 async function toggleScreen() {
@@ -818,7 +967,7 @@ function leaveMeeting() {
     leaveCall();
     if (ws) ws.close();
     try {
-        fetch(`${API}/api/rooms/${currentRoomCode}/leave?user_id=${currentUserId}`, { method: 'POST' }).catch(() => { });
+        fetch(`${API}/api/rooms/${currentRoomCode}/leave`, { method: 'POST', headers: getMeetingAuthHeaders() }).catch(() => { });
     } catch (_) { }
     window.location.href = 'index.html';
 }
@@ -894,6 +1043,7 @@ function renderParticipants() {
             </div>
             ${isHost ? '<span class="member-badge-host">👑 Host</span>' : ''}
             ${isMe ? '<span class="member-badge-you">Bạn</span>' : ''}
+            ${raisedHandsMap.has(uid) ? '<span class="member-hand-icon">✋</span>' : ''}
         </div>`;
     }).join('');
 
@@ -938,6 +1088,235 @@ function copyToClipboard(text, btn) {
 
 function esc(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+// ── Raise Hand ────────────────────────────────────────────────────────────
+
+function toggleHand() {
+    myHandRaised = !myHandRaised;
+    const btn = document.getElementById('btnRaiseHand');
+    if (btn) btn.classList.toggle('active', myHandRaised);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'raise_hand',
+            raised: myHandRaised,
+            user_name: currentUserName,
+        }));
+    }
+}
+
+function onRaiseHand(data) {
+    const uid = data.user_id;
+    if (data.raised) {
+        raisedHandsMap.set(uid, data.user_name || `User ${uid}`);
+        if (uid !== currentUserId) {
+            Toast && Toast.info('Giơ tay', `${esc(data.user_name || 'Ai đó')} đã giơ tay ✋`);
+        }
+    } else {
+        raisedHandsMap.delete(uid);
+    }
+    renderRaisedHands();
+    updateVideoTileHands();
+    updateMemberHandIcon(uid, data.raised);
+}
+
+function renderRaisedHands() {
+    const section = document.getElementById('raisedHandsSection');
+    const list = document.getElementById('raisedHandsList');
+    if (!section || !list) return;
+    if (raisedHandsMap.size === 0) {
+        section.classList.add('hidden');
+        list.innerHTML = '';
+        return;
+    }
+    section.classList.remove('hidden');
+    let html = '';
+    let idx = 1;
+    raisedHandsMap.forEach((name, uid) => {
+        html += `<div class="raised-hand-item">
+            <span class="rh-num">${idx}</span>
+            <span class="rh-name">${esc(name)}</span>
+            <span class="rh-icon">✋</span>
+        </div>`;
+        idx++;
+    });
+    list.innerHTML = html;
+}
+
+function updateVideoTileHands() {
+    raisedHandsMap.forEach((_, uid) => {
+        const el = document.getElementById(`tileHand-${uid}`);
+        if (el) el.classList.remove('hidden');
+    });
+    // Ẩn những ai đã hạ tay
+    document.querySelectorAll('[id^="tileHand-"]').forEach(el => {
+        const uid = parseInt(el.id.replace('tileHand-', ''));
+        if (!raisedHandsMap.has(uid)) el.classList.add('hidden');
+    });
+}
+
+function updateMemberHandIcon(uid, raised) {
+    const el = document.getElementById(`member-item-${uid}`);
+    if (!el) return;
+    let handEl = el.querySelector('.member-hand-icon');
+    if (raised) {
+        if (!handEl) {
+            handEl = document.createElement('span');
+            handEl.className = 'member-hand-icon';
+            handEl.textContent = '✋';
+            el.appendChild(handEl);
+        }
+    } else {
+        if (handEl) handEl.remove();
+    }
+}
+
+// ── Reactions ─────────────────────────────────────────────────────────────
+
+function toggleReactionPicker() {
+    const picker = document.getElementById('reactionPicker');
+    if (picker) picker.classList.toggle('visible');
+}
+
+function closeReactionPicker() {
+    const picker = document.getElementById('reactionPicker');
+    if (picker) picker.classList.remove('visible');
+}
+
+function sendReaction(emoji) {
+    closeReactionPicker();
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'reaction', emoji, user_name: currentUserName }));
+    }
+}
+
+function onReaction(data) {
+    showFloatingReaction(data.emoji, data.user_name || `User ${data.user_id}`);
+}
+
+function showFloatingReaction(emoji, userName) {
+    const overlay = document.getElementById('reactionOverlay');
+    if (!overlay) return;
+    const el = document.createElement('div');
+    el.className = 'floating-reaction';
+    // Random vị trí ngang
+    el.style.left = `${10 + Math.random() * 80}%`;
+    el.innerHTML = `<span class="fr-emoji">${emoji}</span><span class="fr-name">${esc(userName)}</span>`;
+    overlay.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────
+
+function toggleChat() {
+    chatOpen = !chatOpen;
+    const panel = document.getElementById('chatPanel');
+    const btn = document.getElementById('btnToggleChat');
+    const body = document.querySelector('.meeting-body');
+    if (panel) panel.classList.toggle('hidden', !chatOpen);
+    if (btn) btn.classList.toggle('active', chatOpen);
+    if (body) body.classList.toggle('chat-visible', chatOpen);
+    if (chatOpen) {
+        chatUnread = 0;
+        updateChatBadge();
+        scrollChatToBottom();
+    }
+}
+
+async function loadChatHistory() {
+    try {
+        const res = await fetch(`${API}/api/rooms/${currentRoomCode}/messages`, { headers: getMeetingAuthHeaders() });
+        if (!res.ok) return;
+        const messages = await res.json();
+        messages.forEach(m => appendChatMessage({
+            user_id: m.user_id,
+            user_name: m.user_name,
+            content: m.content,
+            sent_at: m.sent_at,
+            fromHistory: true,
+        }));
+    } catch (_) { }
+}
+
+function sendChat() {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    const content = input.value.trim();
+    if (!content) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        Toast && Toast.error('Chưa kết nối', 'Không thể gửi tin nhắn');
+        return;
+    }
+    ws.send(JSON.stringify({
+        type: 'chat_message',
+        content,
+        user_name: currentUserName,
+    }));
+    input.value = '';
+}
+
+function onChatKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendChat();
+    }
+}
+
+function onChatMessage(data) {
+    appendChatMessage(data);
+    if (!chatOpen) {
+        chatUnread++;
+        updateChatBadge();
+    }
+}
+
+function appendChatMessage(data) {
+    const feed = document.getElementById('chatMessages');
+    if (!feed) return;
+
+    // Xóa empty state
+    const empty = feed.querySelector('.chat-empty');
+    if (empty) empty.remove();
+
+    const isMe = data.user_id === currentUserId;
+    const name = data.user_name || `User ${data.user_id}`;
+    const initial = name.charAt(0).toUpperCase();
+    const time = data.sent_at
+        ? new Date(data.sent_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        : new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+    const el = document.createElement('div');
+    el.className = `chat-msg${isMe ? ' chat-msg-me' : ''}`;
+    el.innerHTML = isMe
+        ? `<div class="chat-msg-body">
+            <div class="chat-msg-content">${esc(data.content)}</div>
+            <div class="chat-msg-meta">${esc(name)} · ${time}</div>
+           </div>
+           <div class="chat-avatar chat-avatar-me">${initial}</div>`
+        : `<div class="chat-avatar">${initial}</div>
+           <div class="chat-msg-body">
+            <div class="chat-msg-sender">${esc(name)}</div>
+            <div class="chat-msg-content">${esc(data.content)}</div>
+            <div class="chat-msg-meta">${time}</div>
+           </div>`;
+    feed.appendChild(el);
+    scrollChatToBottom();
+}
+
+function scrollChatToBottom() {
+    const feed = document.getElementById('chatMessages');
+    if (feed) feed.scrollTop = feed.scrollHeight;
+}
+
+function updateChatBadge() {
+    const badge = document.getElementById('chatBadge');
+    if (!badge) return;
+    if (chatUnread > 0) {
+        badge.textContent = chatUnread > 99 ? '99+' : chatUnread;
+        badge.classList.remove('hidden');
+    } else {
+        badge.classList.add('hidden');
+    }
 }
 
 // Boot

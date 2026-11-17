@@ -20,8 +20,9 @@ _gtx_lock = _threading.Lock()
 _gtx_last_call: float = 0.0
 _GTX_MIN_INTERVAL = 0.4  # giây tối thiểu giữa 2 lần gọi gtx
 
-# ── In-memory cache ────────────────────────────────────────────────────────
+# ── In-memory cache (LRU-style, max 500 entries) ──────────────────────────
 _cache: dict[str, str] = {}
+_MAX_TRANSLATION_CACHE = 500
 
 
 def _cache_key(src: str, tgt: str, text: str) -> str:
@@ -33,6 +34,11 @@ def _cache_get(src: str, tgt: str, text: str):
 
 
 def _cache_set(src: str, tgt: str, text: str, result: str):
+    if len(_cache) >= _MAX_TRANSLATION_CACHE:
+        # Xóa 10% entries cũ nhất (FIFO)
+        remove_count = _MAX_TRANSLATION_CACHE // 10
+        for key in list(_cache.keys())[:remove_count]:
+            del _cache[key]
     _cache[_cache_key(src, tgt, text)] = result
 
 

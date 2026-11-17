@@ -12,12 +12,16 @@ class ConnectionManager:
     room_connections: { room_code: [ws1, ws2, ...] }
     user_map:         { (room_code, user_id): ws }
     tts_prefs:        { (room_code, user_id): bool }
+    raised_hands:     { room_code: { user_id: user_name } }  — ai đang giơ tay
+    room_modes:       { room_code: "normal" | "ai" }         — chế độ cuộc họp
     """
 
     def __init__(self):
         self.room_connections: dict[str, list[WebSocket]] = {}
         self.user_map: dict[tuple, WebSocket] = {}
         self.tts_prefs: dict[tuple, bool] = {}
+        self.raised_hands: dict[str, dict[int, str]] = {}  # room_code → {user_id: name}
+        self.room_modes: dict[str, str] = {}              # room_code → "normal" | "ai"
 
     async def connect(self, room_code: str, user_id: int, websocket: WebSocket):
         """
@@ -67,11 +71,18 @@ class ConnectionManager:
                     ]
             if not self.room_connections[room_code]:
                 self.room_connections.pop(room_code, None)
+                self.room_modes.pop(room_code, None)
 
         current_ws = self.user_map.get((room_code, user_id))
         if websocket is None or current_ws == websocket:
             self.user_map.pop((room_code, user_id), None)
             self.tts_prefs.pop((room_code, user_id), None)
+
+    def set_room_mode(self, room_code: str, mode: str) -> None:
+        self.room_modes[room_code] = "ai" if str(mode).lower() in ("ai", "ai_translation", "translation") else "normal"
+
+    def get_room_mode(self, room_code: str) -> str:
+        return self.room_modes.get(room_code, "normal")
 
     def get_user_websocket(self, room_code: str, user_id: int) -> WebSocket | None:
         return self.user_map.get((room_code, user_id))
@@ -159,6 +170,24 @@ class ConnectionManager:
                 if room_code in self.room_connections and ws in self.room_connections[room_code]:
                     self.room_connections[room_code].remove(ws)
 
+    async def close_all_in_room(self, room_code: str, code: int = 1001, reason: str = "Room closed"):
+        """Đóng tất cả WebSocket connection trong room (dùng khi host đóng phòng)."""
+        connections = list(self.room_connections.get(room_code, []))
+        for ws in connections:
+            try:
+                await ws.close(code=code, reason=reason)
+            except Exception:
+                pass
+        # Dọn sạch room khỏi manager
+        self.room_connections.pop(room_code, None)
+        self.room_modes.pop(room_code, None)
+        keys_to_remove = [k for k in list(self.user_map.keys()) if k[0] == room_code]
+        for k in keys_to_remove:
+            self.user_map.pop(k, None)
+            self.tts_prefs.pop(k, None)
+        self.raised_hands.pop(room_code, None)
+        logger.info(f"[WS Manager] Closed all connections in room {room_code}")
+
     def get_room_connection_count(self, room_code: str) -> int:
         return len(self.room_connections.get(room_code, []))
 
@@ -168,6 +197,21 @@ class ConnectionManager:
             uid for (rc, uid), _ in list(self.user_map.items())
             if rc == room_code and uid != exclude
         ]
+
+    # ── Raised hands helpers ──────────────────────────────────────────────
+
+    def set_raised_hand(self, room_code: str, user_id: int, user_name: str, raised: bool):
+        if room_code not in self.raised_hands:
+            self.raised_hands[room_code] = {}
+        if raised:
+            self.raised_hands[room_code][user_id] = user_name
+        else:
+            self.raised_hands[room_code].pop(user_id, None)
+
+    def get_raised_hands(self, room_code: str) -> list[dict]:
+        """Trả danh sách {user_id, user_name} đang giơ tay, theo thứ tự giơ tay."""
+        hands = self.raised_hands.get(room_code, {})
+        return [{"user_id": uid, "user_name": name} for uid, name in hands.items()]
 
 
 manager = ConnectionManager()

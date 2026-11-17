@@ -32,7 +32,7 @@ var AutoSTT = (function () {
     var _speechFrames = 0;
 
     // Tuning params
-    var ENERGY_THRESHOLD = 0.008;  // RMS threshold cho speech detection
+    var ENERGY_THRESHOLD = 0.003;  // RMS threshold cho speech detection (đủ nhạy cho mọi ngôn ngữ)
     // 15 frames × (4096/16000)s ≈ 3.84s → giảm từ 30 xuống 15 để kết thúc câu nhanh hơn
     // nhưng vẫn đủ để không cắt mất từ cuối (người nói thường dừng ~300-500ms giữa các từ)
     var SILENCE_FRAMES_END = 15;

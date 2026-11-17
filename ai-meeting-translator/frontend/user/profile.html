@@ -19,11 +19,20 @@
             <!-- Avatar + name -->
             <div class="card">
                 <div style="padding:24px 20px;display:flex;align-items:center;gap:18px;">
-                    <div class="avatar av-lg" id="profileAvatar">?</div>
+                    <div style="position:relative;cursor:pointer;"
+                        onclick="document.getElementById('avatarInput').click()">
+                        <div class="avatar av-lg" id="profileAvatar">?</div>
+                        <div
+                            style="position:absolute;bottom:0;right:0;background:var(--primary);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;border:2px solid white;">
+                            📷</div>
+                        <input type="file" id="avatarInput" accept="image/*" style="display:none"
+                            onchange="uploadAvatar(this)" />
+                    </div>
                     <div>
                         <div style="font-size:1.15rem;font-weight:700;color:var(--g900);" id="profileName">—</div>
                         <div style="font-size:.82rem;color:var(--g500);" id="profileEmail">—</div>
                         <div style="margin-top:6px;"><span class="badge badge-primary">Người dùng</span></div>
+                        <div style="font-size:.72rem;color:var(--g400);margin-top:4px;">Bấm vào ảnh để thay avatar</div>
                     </div>
                 </div>
             </div>
@@ -137,6 +146,36 @@
                 </div>
             </div>
 
+            <!-- Đổi mật khẩu -->
+            <div class="profile-section">
+                <div class="profile-section-head">
+                    <span style="font-size:1rem;">🔒</span>
+                    <h4>Đổi mật khẩu</h4>
+                </div>
+                <div class="profile-section-body">
+                    <div class="form-group">
+                        <label class="form-label">Mật khẩu hiện tại</label>
+                        <input id="pwdCurrent" type="password" class="form-control" placeholder="••••••"
+                            autocomplete="current-password" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mật khẩu mới</label>
+                        <input id="pwdNew" type="password" class="form-control" placeholder="Ít nhất 6 ký tự"
+                            autocomplete="new-password" />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Xác nhận mật khẩu mới</label>
+                        <input id="pwdConfirm" type="password" class="form-control" placeholder="Nhập lại mật khẩu mới"
+                            autocomplete="new-password" />
+                    </div>
+                    <div id="pwdErr" class="form-error" style="display:none;"></div>
+                    <button class="btn btn-primary btn-sm" onclick="changePassword()">
+                        <span id="pwdSpin" class="spin spin-sm spin-white" style="display:none;"></span>
+                        🔒 Đổi mật khẩu
+                    </button>
+                </div>
+            </div>
+
             <!-- Đăng xuất -->
             <div class="profile-section">
                 <div class="profile-section-body">
@@ -172,7 +211,12 @@
             renderNav('profile.html');
 
             const init = (user.full_name || 'U').charAt(0).toUpperCase();
-            document.getElementById('profileAvatar').textContent = init;
+            const avatarEl = document.getElementById('profileAvatar');
+            if (user.avatar_url) {
+                avatarEl.innerHTML = `<img src="${API}${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+            } else {
+                avatarEl.textContent = init;
+            }
             document.getElementById('profileName').textContent = user.full_name || '';
             document.getElementById('profileEmail').textContent = user.email || '';
             document.getElementById('editName').value = user.full_name || '';
@@ -190,6 +234,34 @@
             if (cs.tts === false) document.getElementById('settingTTS').classList.remove('on');
             if (cs.sub === false) document.getElementById('settingSub').classList.remove('on');
             if (cs.autoMic === true) document.getElementById('settingAutoMic').classList.add('on');
+        }
+
+        async function uploadAvatar(input) {
+            const file = input.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) { T.err('Lỗi', 'Ảnh tối đa 5MB'); return; }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            T.info('Đang tải lên...', '');
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/avatar`, {
+                    method: 'POST',
+                    headers: { 'Authorization': U.getAuthHeaders()['Authorization'] },
+                    body: formData,
+                });
+                if (!res.ok) { const d = await res.json(); T.err('Lỗi', d.detail || 'Upload thất bại'); return; }
+                const data = await res.json();
+                user.avatar_url = data.avatar_url;
+                U.save(user);
+                const avatarEl = document.getElementById('profileAvatar');
+                avatarEl.innerHTML = `<img src="${API}${data.avatar_url}?t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />`;
+                T.ok('Thành công', 'Avatar đã được cập nhật');
+            } catch (_) {
+                T.err('Lỗi', 'Không kết nối được máy chủ');
+            }
+            input.value = '';
         }
 
         async function saveProfile() {
@@ -219,7 +291,7 @@
             document.getElementById('langSpin').style.display = 'inline-block';
             try {
                 const res = await fetch(`${API}/api/users/${user.id}/languages`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    method: 'PUT', headers: U.getAuthHeaders(),
                     body: JSON.stringify({ speaking_language: speak, listening_language: listen })
                 });
                 if (!res.ok) throw new Error();
@@ -240,6 +312,43 @@
         }
 
         function confirmLogout() { openModal('modalLogout'); }
+
+        async function changePassword() {
+            const current = document.getElementById('pwdCurrent').value;
+            const newPwd = document.getElementById('pwdNew').value;
+            const confirm = document.getElementById('pwdConfirm').value;
+            const errEl = document.getElementById('pwdErr');
+            errEl.style.display = 'none';
+
+            if (!current || !newPwd || !confirm) {
+                errEl.textContent = 'Vui lòng điền đầy đủ thông tin'; errEl.style.display = 'block'; return;
+            }
+            if (newPwd.length < 6) {
+                errEl.textContent = 'Mật khẩu mới phải có ít nhất 6 ký tự'; errEl.style.display = 'block'; return;
+            }
+            if (newPwd !== confirm) {
+                errEl.textContent = 'Mật khẩu xác nhận không khớp'; errEl.style.display = 'block'; return;
+            }
+
+            document.getElementById('pwdSpin').style.display = 'inline-block';
+            try {
+                const res = await fetch(`${API}/api/users/${user.id}/password`, {
+                    method: 'PUT',
+                    headers: U.getAuthHeaders(),
+                    body: JSON.stringify({ current_password: current, new_password: newPwd }),
+                });
+                const data = await res.json();
+                if (!res.ok) { errEl.textContent = data.detail || 'Đổi mật khẩu thất bại'; errEl.style.display = 'block'; return; }
+                T.ok('Thành công', 'Mật khẩu đã được thay đổi');
+                document.getElementById('pwdCurrent').value = '';
+                document.getElementById('pwdNew').value = '';
+                document.getElementById('pwdConfirm').value = '';
+            } catch (_) {
+                errEl.textContent = 'Không kết nối được máy chủ'; errEl.style.display = 'block';
+            } finally {
+                document.getElementById('pwdSpin').style.display = 'none';
+            }
+        }
 
         init();
     </script>

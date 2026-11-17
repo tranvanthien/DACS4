@@ -68,6 +68,9 @@
                     </div>
                 </div>
 
+                <!-- Reaction overlay -->
+                <div class="reaction-overlay" id="reactionOverlay"></div>
+
                 <!-- Controls bar -->
                 <div class="controls-bar">
                     <!-- Join call -->
@@ -83,11 +86,49 @@
                         <span class="ctrl-label">Mic</span>
                     </button>
 
+                    <!-- Camera toggle -->
+                    <button class="ctrl-btn ctrl-cam hidden" id="btnToggleCam" onclick="toggleCam()"
+                        title="Bật/tắt camera">
+                        📷
+                        <span class="ctrl-label">Camera</span>
+                    </button>
+
                     <!-- Screen share toggle -->
                     <button class="ctrl-btn ctrl-screen hidden" id="btnToggleScreen" onclick="toggleScreen()"
                         title="Chia sẻ màn hình">
                         🖥️
                         <span class="ctrl-label">Màn hình</span>
+                    </button>
+
+                    <!-- Raise hand -->
+                    <button class="ctrl-btn ctrl-hand" id="btnRaiseHand" onclick="toggleHand()"
+                        title="Giơ tay / Hạ tay">
+                        ✋
+                        <span class="ctrl-label">Giơ tay</span>
+                    </button>
+
+                    <!-- Reactions -->
+                    <div class="ctrl-reaction-wrap" id="reactionWrap">
+                        <button class="ctrl-btn ctrl-reaction" id="btnReaction" onclick="toggleReactionPicker()"
+                            title="Cảm xúc">
+                            😊
+                            <span class="ctrl-label">Cảm xúc</span>
+                        </button>
+                        <div class="reaction-picker" id="reactionPicker">
+                            <button onclick="sendReaction('👍')">👍</button>
+                            <button onclick="sendReaction('❤️')">❤️</button>
+                            <button onclick="sendReaction('😂')">😂</button>
+                            <button onclick="sendReaction('👏')">👏</button>
+                            <button onclick="sendReaction('😮')">😮</button>
+                            <button onclick="sendReaction('😢')">😢</button>
+                        </div>
+                    </div>
+
+                    <!-- Chat toggle -->
+                    <button class="ctrl-btn ctrl-chat" id="btnToggleChat" onclick="toggleChat()" title="Chat">
+                        💬
+                        <span class="ctrl-label">Chat</span>
+                        <span class="chat-badge hidden" id="chatBadge">0</span>
                     </button>
 
                     <!-- Leave call -->
@@ -106,6 +147,22 @@
                     </div>
                 </div>
             </div><!-- /video-area -->
+
+            <!-- ── Chat Panel (collapsible) ──────────────────────── -->
+            <div class="chat-panel hidden" id="chatPanel">
+                <div class="chat-panel-head">
+                    <span>💬 Chat phòng</span>
+                    <button class="btn-close" onclick="toggleChat()" aria-label="Đóng chat">✕</button>
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="chat-empty">Chưa có tin nhắn nào</div>
+                </div>
+                <div class="chat-input-row">
+                    <input type="text" id="chatInput" class="chat-input" placeholder="Nhập tin nhắn..." maxlength="2000"
+                        onkeydown="onChatKey(event)" />
+                    <button class="chat-send-btn" onclick="sendChat()" aria-label="Gửi">➤</button>
+                </div>
+            </div><!-- /chat-panel -->
 
             <!-- ── RIGHT: AI Panel ───────────────────────────────── -->
             <div class="ai-panel">
@@ -183,6 +240,11 @@
                     </div>
                     <span class="mph-count" id="participantCount">0</span>
                 </div>
+                <!-- Raised hands list -->
+                <div class="raised-hands-section hidden" id="raisedHandsSection">
+                    <div class="raised-hands-title">✋ Đang giơ tay</div>
+                    <div class="raised-hands-list" id="raisedHandsList"></div>
+                </div>
                 <div class="members-list" id="participantsList">
                     <div class="members-empty">
                         <div class="me-icon">👥</div>
@@ -197,6 +259,7 @@
     <div id="toast-container"></div>
 
     <script src="app.js"></script>
+    <script src="user/user.js"></script>
     <script src="webrtc-service.js"></script>
     <script src="auto-stt.js"></script>
     <script src="meeting.js"></script>

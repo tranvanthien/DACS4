@@ -26,15 +26,29 @@ def get_active_members(db: Session, room_id: int):
         RoomMember.is_active == True,
     ).all()
 
-def create_room(db: Session, room_name: str, host_id: int) -> Room:
+def create_room(db: Session, room_name: str, host_id: int, meeting_mode: str = "normal") -> Room:
     room_code = generate_room_code(db)
-    room = Room(room_code=room_code, room_name=room_name, host_id=host_id, is_active=True)
+    mode = "ai" if str(meeting_mode).lower() in ("ai", "ai_translation", "translation") else "normal"
+    room = Room(
+        room_code=room_code,
+        room_name=room_name,
+        host_id=host_id,
+        is_active=True,
+        meeting_mode=mode,
+    )
     db.add(room)
     db.flush()  # lấy room.id trước khi commit
 
     # Thêm host vào room_members
     member = RoomMember(room_id=room.id, user_id=host_id, is_active=True)
     db.add(member)
+    db.commit()
+    db.refresh(room)
+    return room
+
+def update_room_mode(db: Session, room: Room, meeting_mode: str) -> Room:
+    mode = "ai" if str(meeting_mode).lower() in ("ai", "ai_translation", "translation") else "normal"
+    room.meeting_mode = mode
     db.commit()
     db.refresh(room)
     return room
@@ -83,6 +97,7 @@ def get_user_rooms(db: Session, user_id: int):
                 "host_id": room.host_id,
                 "joined_at": m.joined_at,
                 "is_active": room.is_active,
+                "meeting_mode": getattr(room, "meeting_mode", "normal") or "normal",
             })
     return result
 

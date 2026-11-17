@@ -13,7 +13,7 @@ const A = {
   clear: () => localStorage.removeItem('lm_admin'),
   require: () => {
     const a = A.load();
-    if (!a || !a.email || !a.admin_key) {
+    if (!a || !a.email || (!a.token && !a.admin_key)) {
       location.href = 'login.html';
       return null;
     }
@@ -24,6 +24,7 @@ const A = {
 function getAuthHeaders() {
   const a = A.load();
   const headers = { 'Content-Type': 'application/json' };
+  if (a && a.token) headers['Authorization'] = `Bearer ${a.token}`;
   if (a && a.email) headers['X-Admin-Email'] = a.email;
   if (a && a.admin_key) headers['X-Admin-Key'] = a.admin_key;
   return headers;

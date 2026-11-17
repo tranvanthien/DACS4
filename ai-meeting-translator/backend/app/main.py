@@ -17,7 +17,7 @@ except Exception:
 
 from app.config import settings
 from app.database import Base, engine
-from app.routers import auth, users, rooms, websocket, admin
+from app.routers import auth, users, rooms, websocket, admin, chat
 import app.models  # noqa: F401
 from app.services.ai_monitor_service import ai_monitor
 
@@ -67,8 +67,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=settings.cors_origins_list,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -79,6 +79,7 @@ app.include_router(users.router)
 app.include_router(rooms.router)
 app.include_router(websocket.router)
 app.include_router(admin.router)
+app.include_router(chat.router)
 
 # Serve frontend tĩnh tại /ui
 _frontend_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend"))
@@ -86,6 +87,11 @@ if os.path.isdir(_frontend_path):
     app.mount("/ui", StaticFiles(directory=_frontend_path, html=True), name="frontend")
 else:
     print(f"[WARNING] Frontend path not found: {_frontend_path}")
+
+# Serve avatars tại /avatars
+_avatars_path = os.path.join(_frontend_path, "avatars")
+os.makedirs(_avatars_path, exist_ok=True)
+app.mount("/avatars", StaticFiles(directory=_avatars_path), name="avatars")
 
 
 @app.get("/api/health")
@@ -150,7 +156,7 @@ def network_info():
 
 
 @app.get("/api/health/ai")
-def ai_health_check():
+async def ai_health_check():
     """Public endpoint — trả trạng thái AI services cho room.html widget."""
     from app.services.whisper_service import whisper_service
     from app.services.translation_service import translate_text
@@ -167,7 +173,7 @@ def ai_health_check():
     # Translation ping (nhẹ)
     try:
         t0 = time.time()
-        result = translate_text("hi", "en", "vi")
+        result = await translate_text("hi", "en", "vi")
         latency = round((time.time() - t0) * 1000, 1)
         services["translation"] = {"status": "ok", "latency_ms": latency}
     except Exception:
